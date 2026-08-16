@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use App\Enums\TransactionType;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -16,7 +15,7 @@ return new class extends Migration
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->date('transaction_date');
             $table->string('type', 30)->index();
-            $table->foreignId('payment_method_id')->nullable()->constrained()->nullOnDelete();
+            $table->foreignId('account_id')->nullable()->constrained()->nullOnDelete();
             $table->foreignId('category_id')->nullable()->constrained()->nullOnDelete();
             $table->string('counterparty_name', 255)->nullable();
             $table->decimal('amount', 15, 2);

@@ -18,7 +18,7 @@ class Transaction extends Model
         'user_id',
         'transaction_date',
         'type',
-        'payment_method_id',
+        'account_id',
         'category_id',
         'counterparty_name',
         'amount',
@@ -58,11 +58,11 @@ class Transaction extends Model
     }
 
     /**
-     * 支払方法。
+     * 口座・決済手段。
      */
-    public function paymentMethod(): BelongsTo
+    public function account(): BelongsTo
     {
-        return $this->belongsTo(PaymentMethod::class);
+        return $this->belongsTo(Account::class);
     }
 
     /**

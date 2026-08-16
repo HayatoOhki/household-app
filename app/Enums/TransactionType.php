@@ -9,6 +9,5 @@ enum TransactionType: string
     case EXPENSE = 'expense';
     case INCOME = 'income';
     case TRANSFER = 'transfer';
-    case WITHDRAWAL = 'withdrawal';
     case OPENING_BALANCE = 'opening_balance';
 }
