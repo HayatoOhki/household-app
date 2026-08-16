@@ -9,9 +9,9 @@ services:
       - ./:/var/www/html
     ports:
       - "8000:8000"
+    command: php artisan serve --host=0.0.0.0 --port=8000
     depends_on:
       - mysql
-    command: php artisan serve --host=0.0.0.0 --port=8000
 
   mysql:
     image: mysql:8.4
@@ -25,6 +25,16 @@ services:
       - "3306:3306"
     volumes:
       - mysql-data:/var/lib/mysql
+
+  phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: household-phpmyadmin
+    environment:
+      PMA_HOST: mysql
+    ports:
+      - "8080:80"
+    depends_on:
+      - mysql
 
 volumes:
   mysql-data:
