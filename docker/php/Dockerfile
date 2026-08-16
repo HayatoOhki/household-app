@@ -21,3 +21,5 @@ RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
     && npm install -g npm@latest
 
 WORKDIR /var/www/html
+
+CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]
