@@ -1,11 +1,8 @@
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>家計簿</title>
-</head>
-<body>
+@extends('layouts.app')
+
+@section('title', '家計簿')
+
+@section('content')
     <header>
         <h1>家計簿</h1>
 
@@ -21,7 +18,31 @@
 
     <main>
         <h2>ホーム</h2>
-        <p>ここに家計簿のダッシュボードを作成します。</p>
+
+        <p>
+            ここに家計簿のダッシュボードを作成します。
+        </p>
+
+        <nav>
+            <ul>
+                <li>
+                    <a href="{{ route('transactions.index') }}">
+                        取引管理
+                    </a>
+                </li>
+
+                <li>
+                    <a href="{{ route('accounts.index') }}">
+                        口座管理
+                    </a>
+                </li>
+
+                <li>
+                    <a href="{{ route('categories.index') }}">
+                        カテゴリ管理
+                    </a>
+                </li>
+            </ul>
+        </nav>
     </main>
-</body>
-</html>
+@endsection

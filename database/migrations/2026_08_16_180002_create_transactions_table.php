@@ -18,7 +18,7 @@ return new class extends Migration
             $table->foreignId('account_id')->nullable()->constrained()->nullOnDelete();
             $table->foreignId('category_id')->nullable()->constrained()->nullOnDelete();
             $table->string('counterparty_name', 255)->nullable();
-            $table->decimal('amount', 15, 2);
+            $table->unsignedBigInteger('amount');
             $table->date('withdrawal_date')->nullable();
             $table->decimal('expense_ratio', 5, 2)->default(0);
             $table->boolean('expense_registered')->default(false);

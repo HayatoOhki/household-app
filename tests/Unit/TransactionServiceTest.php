@@ -48,8 +48,8 @@ class TransactionServiceTest extends TestCase
         $this->assertSame($fromAccount->id, $result['from']->account_id);
         $this->assertSame($toAccount->id, $result['to']->account_id);
 
-        $this->assertSame('30000.00', $result['from']->amount);
-        $this->assertSame('30000.00', $result['to']->amount);
+        $this->assertSame(30000, $result['from']->amount);
+        $this->assertSame(30000, $result['to']->amount);
 
         $this->assertSame(
             $result['from']->id,
@@ -88,7 +88,6 @@ class TransactionServiceTest extends TestCase
     public function test_create_transfer_rejects_account_belonging_to_another_user(): void
     {
         $user = User::factory()->create();
-
         $otherUser = User::factory()->create();
 
         $fromAccount = Account::create([
@@ -112,30 +111,30 @@ class TransactionServiceTest extends TestCase
         );
     }
 
-public function test_create_transfer_rejects_zero_amount(): void
-{
-    $user = User::factory()->create();
+    public function test_create_transfer_rejects_zero_amount(): void
+    {
+        $user = User::factory()->create();
 
-    $fromAccount = Account::create([
-        'user_id' => $user->id,
-        'name' => '三井住友銀行',
-    ]);
+        $fromAccount = Account::create([
+            'user_id' => $user->id,
+            'name' => '三井住友銀行',
+        ]);
 
-    $toAccount = Account::create([
-        'user_id' => $user->id,
-        'name' => '現金',
-    ]);
+        $toAccount = Account::create([
+            'user_id' => $user->id,
+            'name' => '現金',
+        ]);
 
-    $this->expectException(\InvalidArgumentException::class);
+        $this->expectException(\InvalidArgumentException::class);
 
-    app(TransactionService::class)->createTransfer(
-        user: $user,
-        fromAccount: $fromAccount,
-        toAccount: $toAccount,
-        transactionDate: '2026-08-15',
-        amount: 0,
-    );
-}
+        app(TransactionService::class)->createTransfer(
+            user: $user,
+            fromAccount: $fromAccount,
+            toAccount: $toAccount,
+            transactionDate: '2026-08-15',
+            amount: 0,
+        );
+    }
 
     public function test_create_transfer_rejects_negative_amount(): void
     {
@@ -158,11 +157,11 @@ public function test_create_transfer_rejects_zero_amount(): void
             fromAccount: $fromAccount,
             toAccount: $toAccount,
             transactionDate: '2026-08-15',
-            amount: -1000,
+            amount: -1,
         );
     }
 
-    public function test_create_transfer_accepts_minimum_positive_amount(): void
+    public function test_create_transfer_accepts_one_yen_as_minimum_amount(): void
     {
         $user = User::factory()->create();
 
@@ -181,11 +180,11 @@ public function test_create_transfer_rejects_zero_amount(): void
             fromAccount: $fromAccount,
             toAccount: $toAccount,
             transactionDate: '2026-08-15',
-            amount: '0.01',
+            amount: 1,
         );
 
-        $this->assertSame('0.01', $result['from']->amount);
-        $this->assertSame('0.01', $result['to']->amount);
+        $this->assertSame(1, $result['from']->amount);
+        $this->assertSame(1, $result['to']->amount);
     }
 
     public function test_create_transfer_sets_expected_transaction_attributes(): void
@@ -212,7 +211,10 @@ public function test_create_transfer_rejects_zero_amount(): void
 
         foreach ([$result['from'], $result['to']] as $transaction) {
             $this->assertSame($user->id, $transaction->user_id);
-            $this->assertSame('2026-08-15', $transaction->transaction_date->format('Y-m-d'));
+            $this->assertSame(
+                '2026-08-15',
+                $transaction->transaction_date->format('Y-m-d')
+            );
             $this->assertSame('transfer', $transaction->type->value);
             $this->assertNull($transaction->category_id);
             $this->assertNull($transaction->counterparty_name);

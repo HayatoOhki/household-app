@@ -1,11 +1,8 @@
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ログイン - 家計簿</title>
-</head>
-<body>
+@extends('layouts.app')
+
+@section('title', 'ログイン - 家計簿')
+
+@section('content')
     <h1>家計簿</h1>
 
     <h2>ログイン</h2>
@@ -24,7 +21,10 @@
         @csrf
 
         <div>
-            <label for="email">メールアドレス</label>
+            <label for="email">
+                メールアドレス
+            </label>
+
             <input
                 type="email"
                 id="email"
@@ -36,7 +36,10 @@
         </div>
 
         <div>
-            <label for="password">パスワード</label>
+            <label for="password">
+                パスワード
+            </label>
+
             <input
                 type="password"
                 id="password"
@@ -56,19 +59,24 @@
             </label>
         </div>
 
-        <button type="submit">ログイン</button>
+        <button type="submit">
+            ログイン
+        </button>
     </form>
 
     @if (Route::has('register'))
         <p>
-            <a href="{{ route('register') }}">新規登録</a>
+            <a href="{{ route('register') }}">
+                新規登録
+            </a>
         </p>
     @endif
 
     @if (Route::has('password.request'))
         <p>
-            <a href="{{ route('password.request') }}">パスワードを忘れた場合</a>
+            <a href="{{ route('password.request') }}">
+                パスワードを忘れた場合
+            </a>
         </p>
     @endif
-</body>
-</html>
+@endsection

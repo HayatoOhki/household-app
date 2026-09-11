@@ -9,8 +9,8 @@ use App\Models\Account;
 use App\Models\Category;
 use App\Models\Transaction;
 use App\Models\TransactionRule;
-use App\Models\Transfer;
 use App\Models\User;
+use App\Services\TransactionService;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 
@@ -19,8 +19,8 @@ class HouseholdDataSeeder extends Seeder
     public function run(): void
     {
         $user = User::create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
+            'name' => '大木　颯人',
+            'email' => 'hayato1114.drums@gmail.com',
             'password' => Hash::make('password'),
         ]);
 
@@ -55,7 +55,7 @@ class HouseholdDataSeeder extends Seeder
         Transaction::create([
             'user_id' => $user->id,
             'transaction_date' => '2026-08-01',
-            'type' => TransactionType::EXPENSE->value,
+            'type' => TransactionType::EXPENSE,
             'account_id' => $accounts['三井住友銀行']->id,
             'category_id' => $categories['家賃']->id,
             'counterparty_name' => 'ﾔﾁﾝ',
@@ -68,7 +68,7 @@ class HouseholdDataSeeder extends Seeder
         Transaction::create([
             'user_id' => $user->id,
             'transaction_date' => '2026-08-02',
-            'type' => TransactionType::EXPENSE->value,
+            'type' => TransactionType::EXPENSE,
             'account_id' => $accounts['クレジットカード']->id,
             'category_id' => $categories['食費']->id,
             'counterparty_name' => 'Amazon',
@@ -82,46 +82,23 @@ class HouseholdDataSeeder extends Seeder
         Transaction::create([
             'user_id' => $user->id,
             'transaction_date' => '2026-08-10',
-            'type' => TransactionType::INCOME->value,
+            'type' => TransactionType::INCOME,
             'account_id' => $accounts['三井住友銀行']->id,
             'category_id' => $categories['給与']->id,
             'counterparty_name' => '会社',
             'amount' => 300000,
-            'expense_ratio' => 0,
+            'expense_ratio' => 100,
             'expense_registered' => false,
             'receipt_saved' => false,
         ]);
 
-        $bankTransfer = Transaction::create([
-            'user_id' => $user->id,
-            'transaction_date' => '2026-08-15',
-            'type' => TransactionType::TRANSFER->value,
-            'account_id' => $accounts['三井住友銀行']->id,
-            'category_id' => null,
-            'counterparty_name' => null,
-            'amount' => 30000,
-            'expense_ratio' => 0,
-            'expense_registered' => false,
-            'receipt_saved' => false,
-        ]);
-
-        $cashDeposit = Transaction::create([
-            'user_id' => $user->id,
-            'transaction_date' => '2026-08-15',
-            'type' => TransactionType::TRANSFER->value,
-            'account_id' => $accounts['現金']->id,
-            'category_id' => null,
-            'counterparty_name' => null,
-            'amount' => 30000,
-            'expense_ratio' => 0,
-            'expense_registered' => false,
-            'receipt_saved' => false,
-        ]);
-
-        Transfer::create([
-            'from_transaction_id' => $bankTransfer->id,
-            'to_transaction_id' => $cashDeposit->id,
-        ]);
+        app(TransactionService::class)->createTransfer(
+            user: $user,
+            fromAccount: $accounts['三井住友銀行'],
+            toAccount: $accounts['現金'],
+            transactionDate: '2026-08-15',
+            amount: 30000,
+        );
 
         TransactionRule::create([
             'user_id' => $user->id,

@@ -27,9 +27,9 @@ Household App
 │   └─ 自動入力ルール
 │
 ├─ 家計簿機能
-│   ├─ 口座管理        ← 未実装
-│   ├─ カテゴリ管理    ← 未実装
-│   ├─ 取引管理        ← 未実装
+│   ├─ 口座管理        ← 実装済み・動作確認済み
+│   ├─ カテゴリ管理    ← 実装済み・動作確認済み
+│   ├─ 取引管理        ← 支出/収入CRUD実装済み・動作確認済み
 │   ├─ 振替画面        ← 未実装
 │   ├─ 開始残高        ← 未実装
 │   ├─ 自動カテゴリ    ← 未実装
@@ -45,7 +45,7 @@ Household App
 ```
 
 現在は、
-**認証基盤 + 家計簿DB/Model/Service/Test基盤まで完成し、実際の家計簿機能の実装へ移行する段階。**
+**認証基盤・家計簿DB/Model/Service/Test基盤・Account/Category管理・通常Transaction（支出/収入）CRUDまで完成。次はTransfer UIを実装する段階。**
 
 ---
 
@@ -150,13 +150,11 @@ GitHub等からコード全体を推測して補完しない。
 
 ## 現在のフェーズ
 
-**認証基盤 + 家計簿バックエンド基盤完成。**
+**認証基盤 + 家計簿バックエンド基盤 + 基本CRUD完成。**
 
-現在は、設計・基盤構築フェーズから、
+Account / Category管理と、通常Transaction（支出・収入）の登録・一覧・編集・削除まで実装・動作確認済み。
 
-**実際にユーザーが家計簿を操作できる機能の実装フェーズ**
-
-へ移行している。
+現在は次の家計簿機能である **Transfer UI** の実装へ進む段階。
 
 ---
 
@@ -187,7 +185,9 @@ Laravel Fortifyを使用。
 - ログインできる
 - 不正パスワードではログインできない
 - ログアウトできる
+- ログアウト後は `/login` にリダイレクトされる
 - 未認証で `/home` にアクセスすると `/login` にリダイレクトされる
+- 認証失敗・Validationメッセージは日本語化済み
 
 ## 注意：現在の認証画面について
 
@@ -276,6 +276,15 @@ Fortify導入により、
 - `expense_ratio`
 - `expense_registered`
 - `receipt_saved`
+
+金額仕様：
+
+- `amount` は日本円専用の整数
+- DB型は `unsignedBigInteger`
+- Eloquent castは `integer`
+- HTTP入力は `integer|min:1`
+- 小数金額は許可しない
+- `expense_ratio` は小数を許容するため `decimal(5,2)` を維持
 
 主なindex：
 
@@ -410,7 +419,8 @@ DB Transactionを使用して一連の登録を原子的に処理。
 - 振替元と振替先が同一口座 → 拒否
 - 他ユーザーの口座 → 拒否
 - 0以下の金額 → 拒否
-- 0.01以上 → 許可
+- 金額は日本円の整数として扱う
+- 1円以上 → 許可
 
 ## テスト済み
 
@@ -424,7 +434,15 @@ DB Transactionを使用して一連の登録を原子的に処理。
 
 `database/seeders/HouseholdDataSeeder.php`
 
-テスト用家計簿データを作成する。
+`DatabaseSeeder` から `HouseholdDataSeeder` を呼び出し、開発確認用の家計簿データ一式を作成する。
+
+開発用ユーザー：
+
+- 名前：`大木　颯人`
+- メールアドレス：`hayato1114.drums@gmail.com`
+- パスワード：`password`
+
+`migrate:fresh --seed` で開発確認用データを再構築できる。
 
 ## Categories
 
@@ -455,6 +473,14 @@ Amazon：
 
 - `withdrawal_date` 設定あり
 
+給与：
+
+- `expense_ratio = 100`
+
+振替：
+
+- `TransactionService::createTransfer()` を利用して作成
+
 ## Sample TransactionRule
 
 キーワード：
@@ -473,21 +499,52 @@ priority：
 
 # 11. Tests
 
+最新確認結果：
+
+**70 passed / 186 assertions**
+
 ## Feature
 
-`tests/Feature/AuthenticationTest.php`
-
-認証の主要フローを検証。
-
-確認済み：
+### AuthenticationTest
 
 - 登録
 - ログイン
 - 不正パスワード
-- ログアウト
+- ログアウト（`/login` へリダイレクト）
 - 認証済みHome
 - 未認証Homeアクセス
 - Guest状態
+
+### AccountManagementTest
+
+Account CRUD、ユーザー分離、同一ユーザー内の重複名禁止を検証。
+
+### CategoryManagementTest
+
+Category CRUD、ユーザー分離、同一ユーザー内の重複名禁止を検証。
+
+### TransactionManagementTest
+
+通常Transaction（支出・収入）について以下を検証。
+
+- 自分のTransactionのみ一覧表示
+- 支出登録
+- 収入登録
+- 収入でも `expense_ratio` を保持
+- 収入では `withdrawal_date` をNULL化
+- 通常フォームからTransfer / Opening Balanceを登録不可
+- 他ユーザーのAccount / Categoryを利用不可
+- `amount >= 1`
+- 小数金額を拒否
+- `expense_ratio` は0〜100
+- 編集画面
+- 更新
+- 他ユーザーTransactionの編集・更新不可
+- 更新時のAccount / Categoryユーザー分離
+- 支出→収入変更時の引落日クリア
+- Transfer / Opening Balanceを通常編集不可
+- 削除
+- 他ユーザーTransactionの削除不可
 
 ## Unit
 
@@ -505,7 +562,15 @@ Transfer ↔ Transaction Relationおよび外部キー名を検証。
 
 ### TransactionServiceTest
 
-振替Serviceの正常系・異常系・DB結果を検証。
+振替Serviceについて以下を検証。
+
+- 2件のTransaction + Transfer生成
+- 同一口座拒否
+- 他ユーザー口座拒否
+- 0円拒否
+- 負数拒否
+- 1円を最小正常値として許可
+- 生成Transactionの属性
 
 ---
 
@@ -519,8 +584,14 @@ Transfer ↔ Transaction Relationおよび外部キー名を検証。
 
 - `/`
 - `/home`
+- `/accounts` 系CRUD
+- `/categories` 系CRUD
+- `/transactions` 系（index / create / store / edit / update / destroy）
 
-`/home` は `auth` middleware配下。
+家計簿管理ルートは `auth` middleware配下。
+
+Transactionの通常CRUDは `expense` / `income` 専用。
+`transfer` / `opening_balance` は専用機能で扱う。
 
 Fortifyによる認証ルート：
 
@@ -541,73 +612,72 @@ Fortifyによる認証ルート：
 
 # 13. Current Views
 
+共通レイアウト：
+
+- `resources/views/layouts/app.blade.php`
+
+共通レイアウトでは、フォーム内のEnterキーによる意図しないsubmitをアプリ全体で防止する。
+`textarea` の改行は許可する。
+
 ## Authentication
 
 - `resources/views/auth/login.blade.php`
 - `resources/views/auth/register.blade.php`
 
-認証動作確認用の暫定UI。
-
-認証処理は完成しているが、最終的なUIではない。
+認証機能は完成済み。画面デザイン自体は今後の正式UIフェーズで改善する。
 
 ## Home
 
-`resources/views/home.blade.php`
+- `resources/views/home.blade.php`
 
-現在は、
+現在はDashboardへの入口となる暫定Home。
 
-- アプリ名
-- ログインユーザー名
-- ログアウト
-- ホーム見出し
-- Dashboard予定のプレースホルダー
+## Account
 
-のみ。
+- `resources/views/accounts/index.blade.php`
+- `resources/views/accounts/create.blade.php`
+- `resources/views/accounts/edit.blade.php`
 
-**正式な家計簿Dashboardではない。**
+CRUD実装・動作確認済み。
+
+## Category
+
+- `resources/views/categories/index.blade.php`
+- `resources/views/categories/create.blade.php`
+- `resources/views/categories/edit.blade.php`
+
+CRUD実装・動作確認済み。
+
+## Transaction
+
+- `resources/views/transactions/index.blade.php`
+- `resources/views/transactions/create.blade.php`
+- `resources/views/transactions/edit.blade.php`
+
+通常Transaction（支出・収入）のCRUD実装・動作確認済み。
+
+金額入力は整数円。
+収入では引落日を非表示・クリアするが、経費割合は収入でも利用可能。
 
 ---
 
 # 14. Not Yet Implemented
 
-## Account
-
-- 一覧
-- 作成
-- 編集
-- 削除
-- Controller
-- UI
-
-## Category
-
-- 一覧
-- 作成
-- 編集
-- 削除
-- Controller
-- UI
-
-## Transaction
-
-- 登録
-- 一覧
-- 詳細
-- 編集
-- 削除
-- Controller / API
-- UI
-
 ## Transfer
 
-Serviceは実装済み。
+`TransactionService::createTransfer()` は実装・テスト済み。
 
 未実装：
 
-- Controller / API
+- Controller
 - 入力画面
-- UI
+- 一覧等のUI
 - 実際の画面からの振替処理
+
+## Transaction Detail
+
+通常Transactionの一覧・登録・編集・削除は実装済み。
+独立した詳細画面（show）は現時点では未実装。必要性は今後のUI設計で判断する。
 
 ## TransactionRule
 
@@ -639,11 +709,13 @@ DB項目：
 
 は存在する。
 
+通常Transaction画面では `expense_ratio` の入力・更新まで対応済み。
+
 未実装：
 
-- 経費計算
+- 会計上の経費計算
 - 経費登録処理
-- UI
+- 専用UI
 
 ## Receipt
 
@@ -677,13 +749,13 @@ DB項目：
 現時点では以下の順序を基本とする。
 
 ```text
-Account / Category管理
+Account / Category管理                         ← 完了
         ↓
-Transaction登録
+Transaction登録（支出・収入）                  ← 完了
         ↓
-Transaction一覧・詳細・編集・削除
+Transaction一覧・編集・削除                    ← 完了
         ↓
-Transfer UI
+Transfer UI                                    ← 次
         ↓
 TransactionRule自動適用
         ↓
@@ -696,13 +768,17 @@ Expense / Receipt
 Dashboard
         ↓
 正式UI・デザイン改善
+
+※ 現時点では家計簿機能を最優先で完成させる。
+※ 将来的に会計・確定申告機能を追加するが、現段階で既存家計簿DBを
+   会計前提へ大規模変更する必要はない。
 ```
 
 ただし、実装中に依存関係や設計上の理由があれば順序変更可能。
 
-最初の候補は、
+次の実装対象は、
 
-**Account / Category管理**
+**Transfer UI**
 
 ---
 
@@ -736,6 +812,38 @@ Account / Category / Transaction / TransactionRuleはuser_idを持つ。
 
 TransactionServiceでは、振替元・振替先Accountが操作対象Userに属することを確認済み。
 
+## 金額
+
+家計簿は日本円専用として、Transactionの `amount` は整数円で管理する。
+
+- 小数金額は扱わない
+- 1円以上
+- DBは `unsignedBigInteger`
+- Modelは `integer` cast
+
+## Expense Ratio
+
+`expense_ratio` は支出だけでなく収入でも保持できる。
+
+収入へ変更した場合：
+
+- `withdrawal_date` はNULLにする
+- `expense_ratio` はクリアしない
+
+## 共通UI
+
+Blade画面は `resources/views/layouts/app.blade.php` を共通レイアウトとして利用する。
+
+フォーム内のEnterキーによる意図しないsubmitを共通処理で防止する。
+
+## Localization
+
+- locale：`ja`
+- fallback locale：`ja`
+- faker locale：`ja_JP`
+- timezone：`Asia/Tokyo`
+- Fortify認証エラーとValidationメッセージを日本語化
+
 ## Category / Account名
 
 同一ユーザー内では同名を許可しない。
@@ -753,15 +861,16 @@ DBで、
 ```text
 app/
 ├── Actions/Fortify/
-│   ├── CreateNewUser.php
-│   ├── PasswordValidationRules.php
-│   ├── ResetUserPassword.php
-│   ├── UpdateUserPassword.php
-│   └── UpdateUserProfileInformation.php
 ├── Enums/
 │   └── TransactionType.php
-├── Http/Controllers/
-│   └── Controller.php
+├── Http/
+│   ├── Controllers/
+│   │   ├── AccountController.php
+│   │   ├── CategoryController.php
+│   │   ├── Controller.php
+│   │   └── TransactionController.php
+│   └── Responses/
+│       └── LogoutResponse.php
 ├── Models/
 │   ├── Account.php
 │   ├── Category.php
@@ -783,21 +892,38 @@ database/
 └── factories/
     └── UserFactory.php
 
+lang/
+└── ja/
+    ├── auth.php
+    └── validation.php
+
 resources/views/
+├── layouts/
+│   └── app.blade.php
 ├── auth/
 │   ├── login.blade.php
 │   └── register.blade.php
+├── accounts/
+│   ├── index.blade.php
+│   ├── create.blade.php
+│   └── edit.blade.php
+├── categories/
+│   ├── index.blade.php
+│   ├── create.blade.php
+│   └── edit.blade.php
+├── transactions/
+│   ├── index.blade.php
+│   ├── create.blade.php
+│   └── edit.blade.php
 ├── home.blade.php
 └── welcome.blade.php
 
-routes/
-├── api.php
-├── console.php
-└── web.php
-
 tests/
 ├── Feature/
+│   ├── AccountManagementTest.php
 │   ├── AuthenticationTest.php
+│   ├── CategoryManagementTest.php
+│   ├── TransactionManagementTest.php
 │   └── ExampleTest.php
 └── Unit/
     ├── AccountTransactionTest.php
@@ -809,27 +935,207 @@ tests/
 
 ---
 
-# 18. Git / Last Known State
+# 18. Future Accounting Expansion Plan
 
-## 最新確認済みcommit
+今回追加された将来要件：
 
 ```text
-57b8612
-complete authentication views
+フリーランスの確定申告が必要
+        ↓
+家計簿と確定申告を同じアプリで管理したい
+        ↓
+家計簿アプリを優先して完成
+        ↓
+次回確定申告までに会計機能を追加
+        ↓
+最終的には青色申告・e-Tax提出用データ生成を目標とする
 ```
 
-このcommitで、
+## 基本方針
 
-- Fortify認証画面
-- ログイン画面
-- 会員登録画面
-- FortifyServiceProviderの修正
+**現時点では既存の家計簿テーブルを会計前提に大規模変更しない。**
 
-を含む認証機能の動作確認用UIがGitHubへpush済み。
+現在の `Transaction` を「家計簿上で発生した1件の取引」として維持し、
+会計機能が必要になった段階で関連テーブル・Model・Serviceを追加して拡張する。
 
-GitHubの `main` とローカル `main` が同期していることを最後に確認済み。
+現時点で、会計機能のために `transactions` へ必須で追加するカラムはないと判断している。
 
-※ この `PROJECT_STATUS.md` 自体は、このファイル作成後に別commitとしてpushする予定。
+### 現在の設計をそのまま利用するもの
+
+- `Transaction` を家計簿取引の中心として維持
+- `withdrawal_date` はクレジットカード等の引落日として継続利用
+- クレジットカード専用の `TransactionType` は追加しない
+- 家計簿の `Category` と会計上の勘定科目は分離する
+- 現在の家計簿カテゴリ運用は変更しない
+  - 例：食品と日用品をまとめて購入した場合、金額比率が大きいカテゴリに分類する現在のルールを維持
+
+### 将来追加する可能性がある機能・テーブル
+
+#### 外部データ取り込み
+
+クレジットカード・銀行等のスクレイピングによるデータ取得を予定。
+
+候補：
+
+```text
+transaction_imports
+```
+
+外部サービス、外部取引ID、取得日時などを管理し、
+同一明細の重複取り込みを防止する。
+
+`Transaction` 自体は家計簿取引として維持する。
+
+#### 取引内訳
+
+1件のクレジットカード明細に複数の商品・用途が含まれる場合、
+将来的に必要に応じて `TransactionItem` 等を追加する。
+
+例：
+
+```text
+クレジットカード明細 180,000円
+        ↓
+Transaction
+        ↓
+TransactionItem
+├─ PC              150,000円
+├─ キーボード        20,000円
+└─ マウス            10,000円
+```
+
+家計簿上の1Transactionと、会計上の複数の内訳を分離して扱えるようにする。
+
+#### 会計カテゴリ
+
+家計簿 `Category` と会計上の勘定科目を分離する。
+
+将来的に、
+
+```text
+Category
+    ↓
+会計上の勘定科目へのマッピング
+```
+
+を追加する。
+
+#### Expense
+
+現在の `transactions` にある、
+
+- `expense_ratio`
+- `expense_registered`
+
+は現時点ではそのまま利用する。
+
+会計機能拡張時に必要であれば `Expense` テーブルへ分離し、
+Transactionとリレーションする。
+
+#### Fixed Asset
+
+将来的にTransactionから「固定資産として登録」できる機能を追加する。
+
+候補：
+
+```text
+Transaction
+    ↓
+FixedAsset
+    ↓
+Depreciation
+```
+
+固定資産・減価償却を複数年度にわたって管理する。
+
+#### 複式簿記・仕訳
+
+会計機能追加時に、Transactionとは別に仕訳を管理する。
+
+想定：
+
+```text
+Transaction
+    ↓
+会計上の処理
+    ↓
+JournalEntry
+    ↓
+JournalEntryLine
+```
+
+Transactionをそのまま仕訳として扱わない。
+
+将来的に総勘定元帳・試算表・青色申告関連帳票等へ展開する。
+
+#### 年度管理
+
+Transaction自体に会計年度を固定保存するのではなく、
+会計機能側で年度を扱う。
+
+年をまたぐ取引や減価償却など、複数年度に影響する処理は会計側で管理する。
+
+## 会計機能追加時の想定
+
+```text
+既存家計簿
+├─ Account
+├─ Category
+├─ Transaction
+├─ Transfer
+└─ TransactionRule
+
+             ↓ 拡張
+
+会計機能
+├─ TransactionImport
+├─ TransactionItem
+├─ AccountingAccount
+├─ Expense
+├─ FixedAsset
+├─ Depreciation
+├─ FiscalYear
+├─ JournalEntry
+└─ JournalEntryLine
+
+             ↓
+
+青色申告
+             ↓
+e-Tax提出用データ生成
+```
+
+## 重要な設計判断
+
+- 家計簿と会計で必要な情報の粒度は異なる
+- 家計簿のCategoryを会計上の勘定科目に置き換えない
+- クレジットカード明細1件＝会計上の1仕訳とは限らない
+- 1件のTransactionから複数のTransactionItemや仕訳行へ展開できる設計を将来採用する
+- 会計機能は家計簿機能完成後に段階的に追加する
+- スクレイピングのメンテナンスは自分専用アプリであり、仕様・技術を理解したうえで対応するため、現時点では大きな制約とはしない
+
+## Current Accounting Readiness
+
+**会計機能追加を前提としても、現時点で既存 `transactions` に必須で追加するカラムはない。**
+
+したがって、現在の家計簿アプリ開発をそのまま継続してよい。
+
+会計機能を実装する際に、必要なテーブル・Model・Service・UIを追加する。
+
+---
+
+# 18. Git / Last Known State
+
+## 現在確認済み状態
+
+- branch：`main`
+- 実装開始前の `origin/main` とローカル `main` は同期済み
+- 今回の変更はまだcommit前
+- `git diff --check` はエラーなし
+- Account / Category / Transaction CRUD、日本語化、共通レイアウト、Seeder、テスト等がworking treeに存在する
+- 最新テスト結果：**70 passed / 186 assertions**
+
+この `PROJECT_STATUS.md` 更新後、今回のまとまった変更をcommit / pushする予定。
 
 ---
 
@@ -837,26 +1143,105 @@ GitHubの `main` とローカル `main` が同期していることを最後に�
 
 現在の状態を一言で表すと：
 
-**「認証と家計簿のバックエンド基盤は完成。認証の暫定UIまで動作確認済み。次は実際の家計簿操作機能を作る段階。」**
+**「認証・家計簿バックエンド基盤に加え、Account / Category管理と通常Transaction（支出・収入）CRUDまで完成。JPY整数金額、日本語化、共通レイアウト、Seeder、ユーザー分離とテストも整備済み。次は既存TransactionServiceを利用したTransfer UIを実装する。」**
 
 特に重要なのは、
 
-- 認証は実装済み
-- 会員登録 → `/home` まで動作確認済み
-- DB設計は実装済み
-- Model / Relationは実装済み
-- TransactionTypeは実装済み
-- 振替Serviceは実装済み
-- 基本テストは実装済み
-- ログイン・登録・Home画面は**動作確認用の暫定UI**
-- 家計簿としての正式なUIはまだ作っていない
-- 次はAccount / Category管理から実装する
+- 認証は実装・動作確認済み
+- ログアウト後は `/login`
+- 認証・Validationメッセージは日本語
+- Account CRUD実装・動作確認済み
+- Category CRUD実装・動作確認済み
+- Transactionの支出・収入CRUD実装・動作確認済み
+- Transaction金額は日本円の整数
+- 収入でも `expense_ratio` を保持可能
+- 収入では `withdrawal_date` をNULL化
+- Transfer Serviceは実装・テスト済み
+- Transfer / Opening Balanceは通常Transactionフォームから登録・編集不可
+- ユーザー間のデータ分離をController / Validation / Service / Testで確認
+- `migrate:fresh --seed` で開発用サンプルデータを復元可能
+- 最新テストは **70 passed / 186 assertions**
+- 正式Dashboard・最終デザインは未実装
+- 次はTransfer UI
 
 という状態。
 
 ---
 
-# 20. Handoff Rule
+# 20. Current Progress
+
+## 全体進捗
+
+現在は**家計簿基盤 + 基本CRUD完成 → Transfer UI実装直前**。
+
+### 完了
+
+- [x] Laravelプロジェクト基盤
+- [x] Docker / 開発環境
+- [x] Git管理
+- [x] Laravel Fortify認証
+- [x] 会員登録
+- [x] ログイン
+- [x] ログアウト
+- [x] Remember Me
+- [x] 認証Middleware
+- [x] 認証・Validation日本語化
+- [x] 日本向けtimezone / locale
+- [x] 共通Bladeレイアウト
+- [x] Enterキーによる意図しないフォームsubmit防止
+- [x] 家計簿DB基盤
+- [x] Eloquent Model / Relation
+- [x] TransactionType
+- [x] Transaction金額のJPY整数化
+- [x] Transfer Service
+- [x] Account CRUD
+- [x] Category CRUD
+- [x] Transaction支出 / 収入登録
+- [x] Transaction一覧
+- [x] Transaction編集 / 更新
+- [x] Transaction削除
+- [x] Account / Category / Transactionのユーザー分離
+- [x] 開発用Seeder
+- [x] `migrate:fresh --seed` 動作確認
+- [x] Unit / Feature Test
+- [x] 70 tests / 186 assertions PASS
+
+### 未実装
+
+- [ ] Transfer UI
+- [ ] TransactionRule自動適用
+- [ ] Opening Balance
+- [ ] Expense機能
+- [ ] Receipt管理
+- [ ] 集計
+- [ ] Dashboard
+- [ ] 正式UI / デザイン改善
+
+### 将来拡張
+
+- [ ] クレジットカード / 銀行等のスクレイピング
+- [ ] TransactionImport
+- [ ] TransactionItem
+- [ ] 会計用勘定科目
+- [ ] Expense会計拡張
+- [ ] FixedAsset
+- [ ] Depreciation
+- [ ] FiscalYear
+- [ ] JournalEntry / JournalEntryLine
+- [ ] 青色申告対応
+- [ ] e-Tax提出用データ生成
+
+## 現時点の開発判断
+
+**会計・確定申告機能を将来追加する前提でも、現在の家計簿DBを先に大きく改修する必要はない。**
+
+まず家計簿アプリを完成させ、その後に会計機能を段階的に追加する。
+
+次の実装対象は **Transfer UI**。
+
+---
+
+# 21. Handoff Rule
 
 次回このファイル全文が共有された場合は、
 

@@ -22,7 +22,7 @@ class TransactionService
         Account $fromAccount,
         Account $toAccount,
         string $transactionDate,
-        string|int|float $amount,
+        int $amount,
     ): array {
         if ($fromAccount->id === $toAccount->id) {
             throw new \InvalidArgumentException(
@@ -39,9 +39,9 @@ class TransactionService
             );
         }
 
-        if ((float) $amount <= 0) {
+        if ($amount <= 0) {
             throw new \InvalidArgumentException(
-                '振替金額には0より大きい値を指定してください。'
+                '振替金額には1円以上を指定してください。'
             );
         }
 
@@ -70,9 +70,9 @@ class TransactionService
                 'transaction_date' => $transactionDate,
                 'type' => 'transfer',
                 'account_id' => $toAccount->id,
-                'amount' => $amount,
                 'category_id' => null,
                 'counterparty_name' => null,
+                'amount' => $amount,
                 'expense_ratio' => 0,
                 'expense_registered' => false,
                 'receipt_saved' => false,
