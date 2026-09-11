@@ -1,19 +1,45 @@
 @extends('layouts.app')
 
-@section('title', '取引追加')
+@section('title', '支出・収入登録')
 
 @section('content')
     <header>
-        <h1>取引追加</h1>
+        <h1>取引管理</h1>
 
         <p>
-            <a href="{{ route('transactions.index') }}">
-                取引一覧へ戻る
+            <a href="{{ route('home') }}">
+                ホームへ戻る
             </a>
         </p>
+
+        <nav>
+            <a href="{{ route('transactions.index') }}">
+                一覧
+            </a>
+
+            |
+
+            <strong>
+                支出・収入登録
+            </strong>
+
+            |
+
+            <a href="{{ route('transfers.create') }}">
+                振替登録
+            </a>
+
+            |
+
+            <a href="{{ route('opening-balances.create') }}">
+                初期残高登録
+            </a>
+        </nav>
     </header>
 
     <main>
+        <h2>支出・収入登録</h2>
+
         @if ($errors->any())
             <ul>
                 @foreach ($errors->all() as $error)
@@ -219,6 +245,20 @@
 
 @push('scripts')
     <script>
+        const transactionRules = [
+            @foreach ($transactionRules as $rule)
+                {
+                    account_id: @js((string) $rule->account_id),
+                    keyword: @js($rule->keyword),
+                    category_id: @js(
+                        $rule->category_id !== null
+                            ? (string) $rule->category_id
+                            : null
+                    ),
+                },
+            @endforeach
+        ];
+
         const typeSelect =
             document.getElementById('type');
 
@@ -227,6 +267,15 @@
 
         const withdrawalDateInput =
             document.getElementById('withdrawal_date');
+
+        const accountSelect =
+            document.getElementById('account_id');
+
+        const counterpartyInput =
+            document.getElementById('counterparty_name');
+
+        const categorySelect =
+            document.getElementById('category_id');
 
         function updateTransactionFields() {
             const isExpense =
@@ -239,9 +288,48 @@
             }
         }
 
+        function applyTransactionRule() {
+            const accountId =
+                accountSelect.value;
+
+            const counterpartyName =
+                counterpartyInput.value;
+
+            if (!accountId || !counterpartyName) {
+                return;
+            }
+
+            const matchedRule =
+                transactionRules.find(
+                    (rule) =>
+                        rule.account_id === accountId
+                        && counterpartyName.includes(
+                            rule.keyword
+                        )
+                );
+
+            if (
+                matchedRule
+                && matchedRule.category_id !== null
+            ) {
+                categorySelect.value =
+                    matchedRule.category_id;
+            }
+        }
+
         typeSelect.addEventListener(
             'change',
             updateTransactionFields
+        );
+
+        accountSelect.addEventListener(
+            'change',
+            applyTransactionRule
+        );
+
+        counterpartyInput.addEventListener(
+            'input',
+            applyTransactionRule
         );
 
         updateTransactionFields();

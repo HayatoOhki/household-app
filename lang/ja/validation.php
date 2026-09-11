@@ -11,6 +11,7 @@ return [
     'confirmed' => ':attributeと確認用の入力が一致していません。',
     'unique' => 'この:attributeはすでに使用されています。',
     'exists' => '選択された:attributeが正しくありません。',
+    'different' => ':attributeには:otherとは異なる値を指定してください。',
 
     'max' => [
         'numeric' => ':attributeは:max以下で入力してください。',
@@ -42,6 +43,9 @@ return [
         'amount' => '金額',
         'withdrawal_date' => '引落日',
         'expense_ratio' => '経費割合',
+
+        'from_account_id' => '振替元口座',
+        'to_account_id' => '振替先口座',
     ],
 
 ];

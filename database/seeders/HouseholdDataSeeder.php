@@ -55,6 +55,34 @@ class HouseholdDataSeeder extends Seeder
         Transaction::create([
             'user_id' => $user->id,
             'transaction_date' => '2026-08-01',
+            'type' => TransactionType::OPENING_BALANCE,
+            'account_id' => $accounts['現金']->id,
+            'category_id' => null,
+            'counterparty_name' => null,
+            'amount' => 30000,
+            'withdrawal_date' => null,
+            'expense_ratio' => 0,
+            'expense_registered' => false,
+            'receipt_saved' => false,
+        ]);
+
+        Transaction::create([
+            'user_id' => $user->id,
+            'transaction_date' => '2026-08-01',
+            'type' => TransactionType::OPENING_BALANCE,
+            'account_id' => $accounts['三井住友銀行']->id,
+            'category_id' => null,
+            'counterparty_name' => null,
+            'amount' => 500000,
+            'withdrawal_date' => null,
+            'expense_ratio' => 0,
+            'expense_registered' => false,
+            'receipt_saved' => false,
+        ]);
+
+        Transaction::create([
+            'user_id' => $user->id,
+            'transaction_date' => '2026-08-01',
             'type' => TransactionType::EXPENSE,
             'account_id' => $accounts['三井住友銀行']->id,
             'category_id' => $categories['家賃']->id,
@@ -102,10 +130,10 @@ class HouseholdDataSeeder extends Seeder
 
         TransactionRule::create([
             'user_id' => $user->id,
+            'account_id' => $accounts['三井住友銀行']->id,
             'keyword' => 'ﾔﾁﾝ',
             'display_name' => '家賃',
             'category_id' => $categories['家賃']->id,
-            'priority' => 100,
         ]);
     }
 }

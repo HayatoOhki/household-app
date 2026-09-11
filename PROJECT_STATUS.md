@@ -27,12 +27,12 @@ Household App
 │   └─ 自動入力ルール
 │
 ├─ 家計簿機能
-│   ├─ 口座管理        ← 実装済み・動作確認済み
-│   ├─ カテゴリ管理    ← 実装済み・動作確認済み
+│   ├─ 口座管理        ← CRUD実装済み・動作確認済み
+│   ├─ カテゴリ管理    ← CRUD実装済み・動作確認済み
 │   ├─ 取引管理        ← 支出/収入CRUD実装済み・動作確認済み
-│   ├─ 振替画面        ← 未実装
-│   ├─ 開始残高        ← 未実装
-│   ├─ 自動カテゴリ    ← 未実装
+│   ├─ 振替登録        ← 登録・一覧表示実装済み
+│   ├─ 初期残高登録    ← 登録・一覧表示実装済み
+│   ├─ 自動入力ルール  ← 管理UI + 表示名変換 + カテゴリ補助実装済み
 │   ├─ 経費処理        ← 未実装
 │   └─ 領収書管理      ← 未実装
 │
@@ -45,7 +45,7 @@ Household App
 ```
 
 現在は、
-**認証基盤・家計簿DB/Model/Service/Test基盤・Account/Category管理・通常Transaction（支出/収入）CRUDまで完成。次はTransfer UIを実装する段階。**
+**認証基盤・家計簿DB/Model/Service/Test基盤・Account/Category管理・通常Transaction CRUD・Transfer登録・TransactionRule・Opening Balance登録まで完成。次は振替と初期残高の編集・削除を実装する段階。**
 
 ---
 
@@ -150,11 +150,26 @@ GitHub等からコード全体を推測して補完しない。
 
 ## 現在のフェーズ
 
-**認証基盤 + 家計簿バックエンド基盤 + 基本CRUD完成。**
+**家計簿の主要入力機能を一通り実装済み。**
 
-Account / Category管理と、通常Transaction（支出・収入）の登録・一覧・編集・削除まで実装・動作確認済み。
+以下は実装・動作確認済み。
 
-現在は次の家計簿機能である **Transfer UI** の実装へ進む段階。
+- Account CRUD
+- Category CRUD
+- 通常Transaction（支出・収入）CRUD
+- Transfer登録
+- Transferの一覧1行表示
+- TransactionRule管理
+- TransactionRuleによる表示名変換
+- TransactionRuleによるカテゴリ入力補助
+- Opening Balance登録
+- Opening Balance一覧表示
+- Seeder再構築
+
+現在の明確な未実装は、
+**Transfer / Opening Balanceの編集・削除**。
+
+これを終えた後、集計 → Dashboard → 正式UIへ進む。
 
 ---
 
@@ -307,21 +322,28 @@ Transaction削除時はcascade。
 
 ## transaction_rules
 
-取引先名などからカテゴリを自動判定するためのルール。
+口座ごとの取引先キーワードに対する表示名・カテゴリ補助ルール。
 
 項目：
 
 - `user_id`
+- `account_id`
 - `keyword`
-- `display_name`
-- `category_id`
-- `priority`
+- `display_name` nullable
+- `category_id` nullable
+
+制約：
+
+- `(user_id, account_id, keyword)` unique
+- `account_id` は必須
+- 同じキーワードでも口座が異なれば登録可能
+- `priority` は使用しない
 
 主なindex：
 
-- `user_id + keyword`
-- `user_id + priority`
+- `user_id + account_id`
 
+---
 ---
 
 # 7. Transaction Type
@@ -390,6 +412,7 @@ Transaction削除時はcascade。
 ## TransactionRule
 
 - belongsTo User
+- belongsTo Account
 - belongsTo Category
 
 基本的なRelationについてUnit Testあり。
@@ -442,7 +465,7 @@ DB Transactionを使用して一連の登録を原子的に処理。
 - メールアドレス：`hayato1114.drums@gmail.com`
 - パスワード：`password`
 
-`migrate:fresh --seed` で開発確認用データを再構築できる。
+`migrate:fresh --seed` で開発確認用データを再構築できることを確認済み。
 
 ## Categories
 
@@ -457,6 +480,13 @@ DB Transactionを使用して一連の登録を原子的に処理。
 - 現金
 - 三井住友銀行
 - クレジットカード
+
+## Opening Balance
+
+- 現金：30,000円
+- 三井住友銀行：500,000円
+
+Opening Balanceは通常Transactionフォームではなく専用機能で登録する。
 
 ## Sample Transactions
 
@@ -483,17 +513,11 @@ Amazon：
 
 ## Sample TransactionRule
 
-キーワード：
-
-`ﾔﾁﾝ`
-
-適用カテゴリ：
-
-`家賃`
-
-priority：
-
-`100`
+- 対象口座：三井住友銀行
+- キーワード：`ﾔﾁﾝ`
+- 表示名：`家賃`
+- 適用カテゴリ：`家賃`
+- `priority` は使用しない
 
 ---
 
@@ -501,7 +525,16 @@ priority：
 
 最新確認結果：
 
-**70 passed / 186 assertions**
+**107 passed / 313 assertions / 1.52s**
+
+テストはHost側PHPではなくDocker内で実行する。
+
+```bash
+docker compose exec app php artisan test > test-result.txt 2>&1
+```
+
+`test-result.txt` は最新テスト結果を共有するための一時ファイルとして使用する。
+Git管理対象には含めない。
 
 ## Feature
 
@@ -546,6 +579,48 @@ Category CRUD、ユーザー分離、同一ユーザー内の重複名禁止を�
 - 削除
 - 他ユーザーTransactionの削除不可
 
+### TransferManagementTest
+
+Transferについて以下を検証。
+
+- Guestは登録画面へアクセス不可
+- 認証ユーザーは登録画面へアクセス可能
+- 振替登録
+- 同一口座を振替元/先に指定不可
+- 他ユーザー口座を利用不可
+- 金額は1円以上の整数
+- 登録画面には自分の口座のみ表示
+- 取引一覧では2Transactionを1行の振替として表示
+
+### TransactionRuleManagementTest
+
+TransactionRuleについて以下を検証。
+
+- CRUD
+- ユーザー分離
+- Account / Categoryのユーザー分離
+- 同一口座 + 同一keywordの重複禁止
+- 異なる口座では同一keywordを許可
+- Transaction作成画面に自ユーザーのRuleデータを提供
+- 一覧表示時に `display_name` を適用
+- DB上の `counterparty_name` は書き換えない
+- 別口座のRuleを誤適用しない
+
+### OpeningBalanceManagementTest
+
+Opening Balanceについて以下を検証。
+
+- Guestは登録画面へアクセス不可
+- 認証ユーザーは登録画面へアクセス可能
+- 初期残高登録
+- 0円を許可
+- 同一口座に複数登録不可
+- 別口座には登録可能
+- 他ユーザー口座を利用不可
+- 登録画面には自分の口座のみ表示
+- 登録済み口座は選択不可表示
+- 取引一覧へ表示
+
 ## Unit
 
 ### AccountTransactionTest
@@ -587,11 +662,14 @@ Transfer ↔ Transaction Relationおよび外部キー名を検証。
 - `/accounts` 系CRUD
 - `/categories` 系CRUD
 - `/transactions` 系（index / create / store / edit / update / destroy）
+- Transfer create / store
+- `/transaction-rules` 系CRUD（show除外）
+- Opening Balance create / store
 
 家計簿管理ルートは `auth` middleware配下。
 
-Transactionの通常CRUDは `expense` / `income` 専用。
-`transfer` / `opening_balance` は専用機能で扱う。
+通常Transaction CRUDは `expense` / `income` 専用。
+`transfer` / `opening_balance` は専用Controller / UIから扱う。
 
 Fortifyによる認証ルート：
 
@@ -605,7 +683,6 @@ Fortifyによる認証ルート：
 `routes/api.php`
 
 現在は認証ユーザー情報取得用のAPIのみ。
-
 家計簿APIは未実装。
 
 ---
@@ -656,49 +733,85 @@ CRUD実装・動作確認済み。
 
 通常Transaction（支出・収入）のCRUD実装・動作確認済み。
 
-金額入力は整数円。
-収入では引落日を非表示・クリアするが、経費割合は収入でも利用可能。
+取引管理ナビ：
+
+- 一覧
+- 支出・収入登録
+- 振替登録
+- 初期残高登録
+
+一覧表示：
+
+- Transferは振替元Transactionのみ表示し、`口座A → 口座B` の1行として表示
+- Opening Balanceも同じTransaction一覧へ表示
+- Transfer / Opening Balanceでは取引先・カテゴリ・引落日・経費割合・経費登録・領収書保存を `-` 表示
+- ヘッダーは全列中央揃え
+- データは日付・種別・カテゴリ・引落日・経費割合・経費登録・領収書保存・操作を中央揃え
+- 取引先・口座を左揃え
+- 金額を右揃え
+
+## Transfer
+
+- 登録画面実装済み
+- 登録後は通常のTransaction一覧へ戻る
+- 編集・削除は未実装
+
+## TransactionRule
+
+管理UI実装済み。
+
+Ruleは `account_id + keyword` で判定する。
+`display_name` は一覧表示時だけ使用し、DBのraw `counterparty_name` は保持する。
+カテゴリは作成・編集画面で自動選択する入力補助として使用し、ユーザーが上書き可能。
+
+## Opening Balance
+
+- 登録画面実装済み
+- 1口座1件
+- 0円登録可能
+- 登録済み口座は選択不可
+- 一覧表示実装済み
+- 編集・削除は未実装
 
 ---
 
 # 14. Not Yet Implemented
 
-## Transfer
+## Transfer Edit / Delete
 
-`TransactionService::createTransfer()` は実装・テスト済み。
+Transfer登録・一覧表示は実装済み。
 
 未実装：
 
-- Controller
-- 入力画面
-- 一覧等のUI
-- 実際の画面からの振替処理
+- 振替編集
+- 振替削除
+
+注意：
+Transferは
+
+- 振替元Transaction
+- 振替先Transaction
+- Transfer
+
+の3要素で構成されるため、編集・削除では片側Transactionだけを変更してはいけない。
+必ずペアを原子的に更新・削除する。
+
+## Opening Balance Edit / Delete
+
+Opening Balance登録・一覧表示は実装済み。
+
+未実装：
+
+- 初期残高編集
+- 初期残高削除
+
+現在、通常Transactionの編集・削除機能からOpening Balanceを操作することは禁止している。
+専用機能として実装する。
 
 ## Transaction Detail
 
 通常Transactionの一覧・登録・編集・削除は実装済み。
 独立した詳細画面（show）は現時点では未実装。必要性は今後のUI設計で判断する。
-
-## TransactionRule
-
-DB / Model / Seederは実装済み。
-
-未実装または未確認：
-
-- Transaction登録時の自動適用
-- キーワード判定
-- priorityによるルール選択
-- ルール管理UI
-
-## Opening Balance
-
-Enumは存在する。
-
-未実装：
-
-- 開始残高登録Service
-- Controller / API
-- UI
 
 ## Expense
 
@@ -731,6 +844,14 @@ DB項目：
 - ファイル管理
 - UI
 
+## Aggregation
+
+未実装：
+
+- 月間収支
+- カテゴリ別集計
+- 口座残高
+
 ## Dashboard
 
 未実装。
@@ -751,34 +872,34 @@ DB項目：
 ```text
 Account / Category管理                         ← 完了
         ↓
-Transaction登録（支出・収入）                  ← 完了
+Transaction支出・収入CRUD                      ← 完了
         ↓
-Transaction一覧・編集・削除                    ← 完了
+Transfer登録・一覧表示                         ← 完了
         ↓
-Transfer UI                                    ← 次
+TransactionRule管理・入力補助                  ← 完了
         ↓
-TransactionRule自動適用
+Opening Balance登録・一覧表示                  ← 完了
         ↓
-Opening Balance
+Transfer編集・削除                             ← 次
         ↓
-Expense / Receipt
+Opening Balance編集・削除
         ↓
 集計
         ↓
 Dashboard
         ↓
 正式UI・デザイン改善
-
-※ 現時点では家計簿機能を最優先で完成させる。
-※ 将来的に会計・確定申告機能を追加するが、現段階で既存家計簿DBを
-   会計前提へ大規模変更する必要はない。
+        ↓
+Expense / Receipt・会計拡張
 ```
 
-ただし、実装中に依存関係や設計上の理由があれば順序変更可能。
+※ Transfer / Opening Balanceの編集・削除を忘れないこと。
+※ 現時点では家計簿機能を優先して完成させる。
+※ 将来的に会計・確定申告機能を追加するが、現段階で既存家計簿DBを会計前提へ大規模変更する必要はない。
 
 次の実装対象は、
 
-**Transfer UI**
+**Transfer編集・削除 → Opening Balance編集・削除**
 
 ---
 
@@ -797,6 +918,35 @@ Dashboard
 - Transfer
 
 の3要素で表現する。
+
+一覧では1行として表示する。
+編集・削除を実装する場合は3要素を必ず原子的に扱う。
+
+## Opening Balance
+
+初期残高は `TransactionType::OPENING_BALANCE` のTransactionとして扱う。
+
+- 1口座1件
+- `category_id = null`
+- `counterparty_name = null`
+- `withdrawal_date = null`
+- `expense_ratio = 0`
+- `expense_registered = false`
+- `receipt_saved = false`
+- 初期残高のみ0円を許可
+
+編集・削除は専用機能として実装する。
+
+## TransactionRule
+
+Ruleは口座単位。
+
+- `(user_id, account_id, keyword)` unique
+- 同一keywordでも口座が異なれば登録可能
+- `priority` は使用しない
+- raw `counterparty_name` はDBに保存したまま変更しない
+- `display_name` は一覧表示時のみ適用
+- categoryは入力補助として自動選択し、ユーザーが変更可能
 
 ## Withdrawal
 
@@ -817,7 +967,8 @@ TransactionServiceでは、振替元・振替先Accountが操作対象Userに属
 家計簿は日本円専用として、Transactionの `amount` は整数円で管理する。
 
 - 小数金額は扱わない
-- 1円以上
+- 通常Transaction / Transferは1円以上
+- Opening Balanceのみ0円を許可
 - DBは `unsignedBigInteger`
 - Modelは `integer` cast
 
@@ -868,7 +1019,10 @@ app/
 │   │   ├── AccountController.php
 │   │   ├── CategoryController.php
 │   │   ├── Controller.php
-│   │   └── TransactionController.php
+│   │   ├── OpeningBalanceController.php
+│   │   ├── TransactionController.php
+│   │   ├── TransactionRuleController.php
+│   │   └── TransferController.php
 │   └── Responses/
 │       └── LogoutResponse.php
 ├── Models/
@@ -915,6 +1069,14 @@ resources/views/
 │   ├── index.blade.php
 │   ├── create.blade.php
 │   └── edit.blade.php
+├── transfers/
+│   └── create.blade.php
+├── transaction-rules/
+│   ├── index.blade.php
+│   ├── create.blade.php
+│   └── edit.blade.php
+├── opening-balances/
+│   └── create.blade.php
 ├── home.blade.php
 └── welcome.blade.php
 
@@ -923,7 +1085,10 @@ tests/
 │   ├── AccountManagementTest.php
 │   ├── AuthenticationTest.php
 │   ├── CategoryManagementTest.php
+│   ├── OpeningBalanceManagementTest.php
 │   ├── TransactionManagementTest.php
+│   ├── TransactionRuleManagementTest.php
+│   ├── TransferManagementTest.php
 │   └── ExampleTest.php
 └── Unit/
     ├── AccountTransactionTest.php
@@ -1129,13 +1294,18 @@ e-Tax提出用データ生成
 ## 現在確認済み状態
 
 - branch：`main`
-- 実装開始前の `origin/main` とローカル `main` は同期済み
-- 今回の変更はまだcommit前
-- `git diff --check` はエラーなし
-- Account / Category / Transaction CRUD、日本語化、共通レイアウト、Seeder、テスト等がworking treeに存在する
-- 最新テスト結果：**70 passed / 186 assertions**
+- 今回の変更はまだcommit / push確認前
+- Account / Category / Transaction CRUD
+- Transfer登録・一覧表示
+- TransactionRule CRUD / 入力補助 / 表示名変換
+- Opening Balance登録・一覧表示
+- Seeder更新
+- 取引一覧の表示整理
+- 最新テスト結果：**107 passed / 313 assertions / 1.52s**
+- `test-result.txt` で最新テスト結果を共有する運用
 
-この `PROJECT_STATUS.md` 更新後、今回のまとまった変更をcommit / pushする予定。
+この `PROJECT_STATUS.md` 更新後、
+`git diff --check` → commit → push を行う予定。
 
 ---
 
@@ -1143,7 +1313,7 @@ e-Tax提出用データ生成
 
 現在の状態を一言で表すと：
 
-**「認証・家計簿バックエンド基盤に加え、Account / Category管理と通常Transaction（支出・収入）CRUDまで完成。JPY整数金額、日本語化、共通レイアウト、Seeder、ユーザー分離とテストも整備済み。次は既存TransactionServiceを利用したTransfer UIを実装する。」**
+**「認証・家計簿バックエンド基盤に加え、Account / Category / 通常Transaction CRUD、Transfer登録、TransactionRule、Opening Balance登録まで完成。次は振替と初期残高の編集・削除を実装し、その後集計・Dashboardへ進む。」**
 
 特に重要なのは、
 
@@ -1152,17 +1322,25 @@ e-Tax提出用データ生成
 - 認証・Validationメッセージは日本語
 - Account CRUD実装・動作確認済み
 - Category CRUD実装・動作確認済み
-- Transactionの支出・収入CRUD実装・動作確認済み
+- Transaction支出・収入CRUD実装・動作確認済み
 - Transaction金額は日本円の整数
 - 収入でも `expense_ratio` を保持可能
 - 収入では `withdrawal_date` をNULL化
-- Transfer Serviceは実装・テスト済み
-- Transfer / Opening Balanceは通常Transactionフォームから登録・編集不可
-- ユーザー間のデータ分離をController / Validation / Service / Testで確認
+- Transfer登録UI実装済み
+- Transferは一覧で1行表示
+- Transfer編集・削除は未実装
+- TransactionRule CRUD実装済み
+- TransactionRuleは口座単位で、`priority` は使用しない
+- raw `counterparty_name` を保持し、`display_name` は表示時のみ利用
+- TransactionRuleのcategoryは入力補助として自動選択し、ユーザーが変更可能
+- Opening Balance登録UI実装済み
+- Opening Balanceは1口座1件、0円を許可
+- Opening Balance編集・削除は未実装
+- Transfer / Opening Balanceは通常Transaction編集機能から操作不可
 - `migrate:fresh --seed` で開発用サンプルデータを復元可能
-- 最新テストは **70 passed / 186 assertions**
+- 最新テストは **107 passed / 313 assertions / 1.52s**
+- テスト結果共有は `test-result.txt`
 - 正式Dashboard・最終デザインは未実装
-- 次はTransfer UI
 
 という状態。
 
@@ -1172,7 +1350,7 @@ e-Tax提出用データ生成
 
 ## 全体進捗
 
-現在は**家計簿基盤 + 基本CRUD完成 → Transfer UI実装直前**。
+現在は**主要入力機能完成 → Transfer / Opening Balance編集・削除実装前**。
 
 ### 完了
 
@@ -1200,20 +1378,32 @@ e-Tax提出用データ生成
 - [x] Transaction一覧
 - [x] Transaction編集 / 更新
 - [x] Transaction削除
-- [x] Account / Category / Transactionのユーザー分離
+- [x] Transfer登録
+- [x] Transfer一覧1行表示
+- [x] TransactionRule CRUD
+- [x] TransactionRule表示名変換
+- [x] TransactionRuleカテゴリ入力補助
+- [x] Opening Balance登録
+- [x] Opening Balance一覧表示
+- [x] Opening Balance同一口座重複防止
+- [x] Account / Category / Transaction / TransactionRuleのユーザー分離
 - [x] 開発用Seeder
 - [x] `migrate:fresh --seed` 動作確認
+- [x] `test-result.txt` によるテスト結果共有
 - [x] Unit / Feature Test
-- [x] 70 tests / 186 assertions PASS
+- [x] 107 tests / 313 assertions PASS
 
 ### 未実装
 
-- [ ] Transfer UI
-- [ ] TransactionRule自動適用
-- [ ] Opening Balance
+- [ ] Transfer編集
+- [ ] Transfer削除
+- [ ] Opening Balance編集
+- [ ] Opening Balance削除
 - [ ] Expense機能
 - [ ] Receipt管理
-- [ ] 集計
+- [ ] 月間収支
+- [ ] カテゴリ別集計
+- [ ] 口座残高
 - [ ] Dashboard
 - [ ] 正式UI / デザイン改善
 
@@ -1235,9 +1425,11 @@ e-Tax提出用データ生成
 
 **会計・確定申告機能を将来追加する前提でも、現在の家計簿DBを先に大きく改修する必要はない。**
 
-まず家計簿アプリを完成させ、その後に会計機能を段階的に追加する。
+まず家計簿アプリの入力・編集・削除・集計を完成させ、その後に会計機能を段階的に追加する。
 
-次の実装対象は **Transfer UI**。
+次の実装対象は、
+
+**Transfer編集・削除 → Opening Balance編集・削除**。
 
 ---
 
@@ -1260,6 +1452,8 @@ e-Tax提出用データ生成
 更新する場合は、今回までの実装内容を反映した**最新版の `PROJECT_STATUS.md` をダウンロードできるファイルとして返す**。
 
 コード全文や細かなコマンド履歴は、このファイルへ追加しない。
+
+テスト確認が必要な場合は、最新の `test-result.txt` を共有してもらい結果を確認する。
 
 ---
 

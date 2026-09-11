@@ -17,12 +17,27 @@ class TransactionController extends Controller
     {
         $transactions = $request->user()
             ->transactions()
-            ->with(['account', 'category'])
+            ->with([
+                'account',
+                'category',
+                'outgoingTransfer.toTransaction.account',
+            ])
+            ->whereDoesntHave('incomingTransfer')
             ->orderByDesc('transaction_date')
             ->orderByDesc('id')
             ->get();
 
-        return view('transactions.index', compact('transactions'));
+        $transactionRules = $request->user()
+            ->transactionRules()
+            ->get();
+
+        return view(
+            'transactions.index',
+            compact(
+                'transactions',
+                'transactionRules'
+            )
+        );
     }
 
     public function create(Request $request): View
@@ -37,9 +52,17 @@ class TransactionController extends Controller
             ->orderBy('name')
             ->get();
 
+        $transactionRules = $request->user()
+            ->transactionRules()
+            ->get();
+
         return view(
             'transactions.create',
-            compact('accounts', 'categories')
+            compact(
+                'accounts',
+                'categories',
+                'transactionRules'
+            )
         );
     }
 
@@ -81,12 +104,17 @@ class TransactionController extends Controller
             ->orderBy('name')
             ->get();
 
+        $transactionRules = $request->user()
+            ->transactionRules()
+            ->get();
+
         return view(
             'transactions.edit',
             compact(
                 'transaction',
                 'accounts',
-                'categories'
+                'categories',
+                'transactionRules'
             )
         );
     }

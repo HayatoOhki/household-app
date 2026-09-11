@@ -12,15 +12,37 @@ return new class extends Migration
     {
         Schema::create('transaction_rules', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+
+            $table->foreignId('user_id')
+                ->constrained()
+                ->cascadeOnDelete();
+
+            $table->foreignId('account_id')
+                ->constrained()
+                ->cascadeOnDelete();
+
             $table->string('keyword', 255);
-            $table->string('display_name', 255)->nullable();
-            $table->foreignId('category_id')->nullable()->constrained()->nullOnDelete();
-            $table->unsignedInteger('priority')->default(0);
+
+            $table->string('display_name', 255)
+                ->nullable();
+
+            $table->foreignId('category_id')
+                ->nullable()
+                ->constrained()
+                ->nullOnDelete();
+
             $table->timestamps();
 
-            $table->index(['user_id', 'keyword']);
-            $table->index(['user_id', 'priority']);
+            $table->unique([
+                'user_id',
+                'account_id',
+                'keyword',
+            ]);
+
+            $table->index([
+                'user_id',
+                'account_id',
+            ]);
         });
     }
 

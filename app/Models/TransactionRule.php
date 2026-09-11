@@ -14,18 +14,11 @@ class TransactionRule extends Model
 
     protected $fillable = [
         'user_id',
+        'account_id',
         'keyword',
         'display_name',
         'category_id',
-        'priority',
     ];
-
-    protected function casts(): array
-    {
-        return [
-            'priority' => 'integer',
-        ];
-    }
 
     /**
      * このルールを所有するユーザー。
@@ -33,6 +26,14 @@ class TransactionRule extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * このルールを適用する口座。
+     */
+    public function account(): BelongsTo
+    {
+        return $this->belongsTo(Account::class);
     }
 
     /**

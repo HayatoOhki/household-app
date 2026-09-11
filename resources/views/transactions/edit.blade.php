@@ -223,6 +223,20 @@
 
 @push('scripts')
     <script>
+        const transactionRules = [
+            @foreach ($transactionRules as $rule)
+                {
+                    account_id: @js((string) $rule->account_id),
+                    keyword: @js($rule->keyword),
+                    category_id: @js(
+                        $rule->category_id !== null
+                            ? (string) $rule->category_id
+                            : null
+                    ),
+                },
+            @endforeach
+        ];
+
         const typeSelect =
             document.getElementById('type');
 
@@ -231,6 +245,15 @@
 
         const withdrawalDateInput =
             document.getElementById('withdrawal_date');
+
+        const accountSelect =
+            document.getElementById('account_id');
+
+        const counterpartyInput =
+            document.getElementById('counterparty_name');
+
+        const categorySelect =
+            document.getElementById('category_id');
 
         function updateTransactionFields() {
             const isExpense =
@@ -243,9 +266,48 @@
             }
         }
 
+        function applyTransactionRule() {
+            const accountId =
+                accountSelect.value;
+
+            const counterpartyName =
+                counterpartyInput.value;
+
+            if (!accountId || !counterpartyName) {
+                return;
+            }
+
+            const matchedRule =
+                transactionRules.find(
+                    (rule) =>
+                        rule.account_id === accountId
+                        && counterpartyName.includes(
+                            rule.keyword
+                        )
+                );
+
+            if (
+                matchedRule
+                && matchedRule.category_id !== null
+            ) {
+                categorySelect.value =
+                    matchedRule.category_id;
+            }
+        }
+
         typeSelect.addEventListener(
             'change',
             updateTransactionFields
+        );
+
+        accountSelect.addEventListener(
+            'change',
+            applyTransactionRule
+        );
+
+        counterpartyInput.addEventListener(
+            'input',
+            applyTransactionRule
         );
 
         updateTransactionFields();
