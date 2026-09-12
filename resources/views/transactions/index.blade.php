@@ -7,7 +7,7 @@
         <h1>取引管理</h1>
 
         <p>
-            <a href="{{ route('home') }}">
+            <a href="{{ route('dashboard') }}">
                 ホームへ戻る
             </a>
         </p>
@@ -276,6 +276,75 @@
                                         <button
                                             type="submit"
                                             onclick="return confirm('この取引を削除しますか？')"
+                                        >
+                                            削除
+                                        </button>
+                                    </form>
+                                @elseif (
+                                    $transaction->type->value === 'transfer'
+                                    && $transaction->outgoingTransfer !== null
+                                )
+                                    <a
+                                        href="{{
+                                            route(
+                                                'transfers.edit',
+                                                $transaction->outgoingTransfer
+                                            )
+                                        }}"
+                                    >
+                                        編集
+                                    </a>
+
+                                    <form
+                                        method="POST"
+                                        action="{{
+                                            route(
+                                                'transfers.destroy',
+                                                $transaction->outgoingTransfer
+                                            )
+                                        }}"
+                                        style="display: inline;"
+                                    >
+                                        @csrf
+                                        @method('DELETE')
+
+                                        <button
+                                            type="submit"
+                                            onclick="return confirm('この振替を削除しますか？')"
+                                        >
+                                            削除
+                                        </button>
+                                    </form>
+                                @elseif (
+                                    $transaction->type->value === 'opening_balance'
+                                )
+                                    <a
+                                        href="{{
+                                            route(
+                                                'opening-balances.edit',
+                                                $transaction
+                                            )
+                                        }}"
+                                    >
+                                        編集
+                                    </a>
+
+                                    <form
+                                        method="POST"
+                                        action="{{
+                                            route(
+                                                'opening-balances.destroy',
+                                                $transaction
+                                            )
+                                        }}"
+                                        style="display: inline;"
+                                    >
+                                        @csrf
+                                        @method('DELETE')
+
+                                        <button
+                                            type="submit"
+                                            onclick="return confirm('この初期残高を削除しますか？')"
                                         >
                                             削除
                                         </button>

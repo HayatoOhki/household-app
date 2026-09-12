@@ -24,26 +24,13 @@ class TransactionService
         string $transactionDate,
         int $amount,
     ): array {
-        if ($fromAccount->id === $toAccount->id) {
-            throw new \InvalidArgumentException(
-                '振替元と振替先には異なる口座を指定してください。'
-            );
-        }
+        $this->validateTransferAccounts(
+            $user,
+            $fromAccount,
+            $toAccount
+        );
 
-        if (
-            $fromAccount->user_id !== $user->id
-            || $toAccount->user_id !== $user->id
-        ) {
-            throw new \InvalidArgumentException(
-                '振替元と振替先には自分の口座を指定してください。'
-            );
-        }
-
-        if ($amount <= 0) {
-            throw new \InvalidArgumentException(
-                '振替金額には1円以上を指定してください。'
-            );
-        }
+        $this->validateTransferAmount($amount);
 
         return DB::transaction(function () use (
             $user,
@@ -89,5 +76,131 @@ class TransactionService
                 'transfer' => $transfer,
             ];
         });
+    }
+
+    /**
+     * 口座間の資金移動を更新する。
+     */
+    public function updateTransfer(
+        User $user,
+        Transfer $transfer,
+        Account $fromAccount,
+        Account $toAccount,
+        string $transactionDate,
+        int $amount,
+    ): void {
+        $this->validateTransferOwnership(
+            $user,
+            $transfer
+        );
+
+        $this->validateTransferAccounts(
+            $user,
+            $fromAccount,
+            $toAccount
+        );
+
+        $this->validateTransferAmount($amount);
+
+        DB::transaction(function () use (
+            $transfer,
+            $fromAccount,
+            $toAccount,
+            $transactionDate,
+            $amount,
+        ): void {
+            $transfer->fromTransaction->update([
+                'transaction_date' => $transactionDate,
+                'account_id' => $fromAccount->id,
+                'amount' => $amount,
+            ]);
+
+            $transfer->toTransaction->update([
+                'transaction_date' => $transactionDate,
+                'account_id' => $toAccount->id,
+                'amount' => $amount,
+            ]);
+        });
+    }
+
+    /**
+     * 口座間の資金移動を削除する。
+     */
+    public function deleteTransfer(
+        User $user,
+        Transfer $transfer,
+    ): void {
+        $this->validateTransferOwnership(
+            $user,
+            $transfer
+        );
+
+        DB::transaction(function () use ($transfer): void {
+            $fromTransaction = $transfer->fromTransaction;
+            $toTransaction = $transfer->toTransaction;
+
+            $transfer->delete();
+
+            $fromTransaction->delete();
+            $toTransaction->delete();
+        });
+    }
+
+    /**
+     * 振替元・振替先口座を検証する。
+     */
+    private function validateTransferAccounts(
+        User $user,
+        Account $fromAccount,
+        Account $toAccount,
+    ): void {
+        if ($fromAccount->id === $toAccount->id) {
+            throw new \InvalidArgumentException(
+                '振替元と振替先には異なる口座を指定してください。'
+            );
+        }
+
+        if (
+            $fromAccount->user_id !== $user->id
+            || $toAccount->user_id !== $user->id
+        ) {
+            throw new \InvalidArgumentException(
+                '振替元と振替先には自分の口座を指定してください。'
+            );
+        }
+    }
+
+    /**
+     * 振替金額を検証する。
+     */
+    private function validateTransferAmount(int $amount): void
+    {
+        if ($amount <= 0) {
+            throw new \InvalidArgumentException(
+                '振替金額には1円以上を指定してください。'
+            );
+        }
+    }
+
+    /**
+     * 振替が操作対象ユーザーのものか検証する。
+     */
+    private function validateTransferOwnership(
+        User $user,
+        Transfer $transfer,
+    ): void {
+        $transfer->loadMissing([
+            'fromTransaction',
+            'toTransaction',
+        ]);
+
+        if (
+            $transfer->fromTransaction === null
+            || $transfer->toTransaction === null
+            || $transfer->fromTransaction->user_id !== $user->id
+            || $transfer->toTransaction->user_id !== $user->id
+        ) {
+            abort(404);
+        }
     }
 }

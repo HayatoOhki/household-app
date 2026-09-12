@@ -6,6 +6,7 @@ namespace Tests\Feature;
 
 use App\Models\Account;
 use App\Models\Transaction;
+use App\Models\Transfer;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -431,6 +432,407 @@ class TransferManagementTest extends TestCase
                 '10,000 円'
             )
         );
+    }
+
+    public function test_user_can_open_transfer_edit_page(): void
+    {
+        [$user, $transfer, $fromAccount, $toAccount] =
+            $this->createTransferData();
+
+        $response = $this
+            ->actingAs($user)
+            ->get(
+                route('transfers.edit', $transfer)
+            );
+
+        $response->assertOk();
+
+        $response->assertSee('振替編集');
+        $response->assertSee($fromAccount->name);
+        $response->assertSee($toAccount->name);
+        $response->assertSee('10000');
+    }
+
+    public function test_user_can_update_transfer(): void
+    {
+        [$user, $transfer, $fromAccount, $toAccount] =
+            $this->createTransferData();
+
+        $newFromAccount = $this->createAccount(
+            $user,
+            '新しい振替元'
+        );
+
+        $newToAccount = $this->createAccount(
+            $user,
+            '新しい振替先'
+        );
+
+        $fromTransactionId =
+            $transfer->from_transaction_id;
+
+        $toTransactionId =
+            $transfer->to_transaction_id;
+
+        $response = $this
+            ->actingAs($user)
+            ->put(
+                route('transfers.update', $transfer),
+                [
+                    'transaction_date' => '2026-09-20',
+                    'from_account_id' => $newFromAccount->id,
+                    'to_account_id' => $newToAccount->id,
+                    'amount' => 20000,
+                ]
+            );
+
+        $response->assertRedirect(
+            route('transactions.index')
+        );
+
+        $response->assertSessionHas(
+            'success',
+            '振替を更新しました。'
+        );
+
+        $this->assertDatabaseHas(
+            'transactions',
+            [
+                'id' => $fromTransactionId,
+                'user_id' => $user->id,
+                'transaction_date' => '2026-09-20 00:00:00',
+                'type' => 'transfer',
+                'account_id' => $newFromAccount->id,
+                'amount' => 20000,
+            ]
+        );
+
+        $this->assertDatabaseHas(
+            'transactions',
+            [
+                'id' => $toTransactionId,
+                'user_id' => $user->id,
+                'transaction_date' => '2026-09-20 00:00:00',
+                'type' => 'transfer',
+                'account_id' => $newToAccount->id,
+                'amount' => 20000,
+            ]
+        );
+
+        $this->assertDatabaseHas(
+            'transfers',
+            [
+                'id' => $transfer->id,
+                'from_transaction_id' => $fromTransactionId,
+                'to_transaction_id' => $toTransactionId,
+            ]
+        );
+
+        $this->assertDatabaseMissing(
+            'transactions',
+            [
+                'id' => $fromTransactionId,
+                'account_id' => $fromAccount->id,
+                'amount' => 10000,
+            ]
+        );
+
+        $this->assertDatabaseMissing(
+            'transactions',
+            [
+                'id' => $toTransactionId,
+                'account_id' => $toAccount->id,
+                'amount' => 10000,
+            ]
+        );
+    }
+
+    public function test_user_cannot_update_transfer_with_same_account(): void
+    {
+        [$user, $transfer, $fromAccount] =
+            $this->createTransferData();
+
+        $response = $this
+            ->actingAs($user)
+            ->from(
+                route('transfers.edit', $transfer)
+            )
+            ->put(
+                route('transfers.update', $transfer),
+                [
+                    'transaction_date' => '2026-09-20',
+                    'from_account_id' => $fromAccount->id,
+                    'to_account_id' => $fromAccount->id,
+                    'amount' => 20000,
+                ]
+            );
+
+        $response->assertRedirect(
+            route('transfers.edit', $transfer)
+        );
+
+        $response->assertSessionHasErrors([
+            'to_account_id',
+        ]);
+
+        $this->assertDatabaseHas(
+            'transactions',
+            [
+                'id' => $transfer->from_transaction_id,
+                'transaction_date' => '2026-09-11 00:00:00',
+                'account_id' => $fromAccount->id,
+                'amount' => 10000,
+            ]
+        );
+    }
+
+    public function test_user_cannot_use_other_users_account_when_updating_transfer(): void
+    {
+        [$user, $transfer, $fromAccount] =
+            $this->createTransferData();
+
+        $otherUser = User::factory()->create();
+
+        $otherAccount = $this->createAccount(
+            $otherUser,
+            '他人の銀行'
+        );
+
+        $response = $this
+            ->actingAs($user)
+            ->put(
+                route('transfers.update', $transfer),
+                [
+                    'transaction_date' => '2026-09-20',
+                    'from_account_id' => $fromAccount->id,
+                    'to_account_id' => $otherAccount->id,
+                    'amount' => 20000,
+                ]
+            );
+
+        $response->assertSessionHasErrors([
+            'to_account_id',
+        ]);
+
+        $this->assertDatabaseHas(
+            'transactions',
+            [
+                'id' => $transfer->from_transaction_id,
+                'transaction_date' => '2026-09-11 00:00:00',
+                'amount' => 10000,
+            ]
+        );
+
+        $this->assertDatabaseHas(
+            'transactions',
+            [
+                'id' => $transfer->to_transaction_id,
+                'transaction_date' => '2026-09-11 00:00:00',
+                'amount' => 10000,
+            ]
+        );
+    }
+
+    public function test_user_cannot_open_other_users_transfer_edit_page(): void
+    {
+        [$owner, $transfer] =
+            $this->createTransferData();
+
+        $otherUser = User::factory()->create();
+
+        $response = $this
+            ->actingAs($otherUser)
+            ->get(
+                route('transfers.edit', $transfer)
+            );
+
+        $response->assertNotFound();
+    }
+
+    public function test_user_cannot_update_other_users_transfer(): void
+    {
+        [$owner, $transfer, $fromAccount, $toAccount] =
+            $this->createTransferData();
+
+        $otherUser = User::factory()->create();
+
+        $otherFromAccount = $this->createAccount(
+            $otherUser,
+            '他人の銀行'
+        );
+
+        $otherToAccount = $this->createAccount(
+            $otherUser,
+            '他人の現金'
+        );
+
+        $response = $this
+            ->actingAs($otherUser)
+            ->put(
+                route('transfers.update', $transfer),
+                [
+                    'transaction_date' => '2026-09-20',
+                    'from_account_id' => $otherFromAccount->id,
+                    'to_account_id' => $otherToAccount->id,
+                    'amount' => 20000,
+                ]
+            );
+
+        $response->assertNotFound();
+
+        $this->assertDatabaseHas(
+            'transactions',
+            [
+                'id' => $transfer->from_transaction_id,
+                'user_id' => $owner->id,
+                'account_id' => $fromAccount->id,
+                'amount' => 10000,
+            ]
+        );
+
+        $this->assertDatabaseHas(
+            'transactions',
+            [
+                'id' => $transfer->to_transaction_id,
+                'user_id' => $owner->id,
+                'account_id' => $toAccount->id,
+                'amount' => 10000,
+            ]
+        );
+    }
+
+    public function test_user_can_delete_transfer(): void
+    {
+        [$user, $transfer] =
+            $this->createTransferData();
+
+        $fromTransactionId =
+            $transfer->from_transaction_id;
+
+        $toTransactionId =
+            $transfer->to_transaction_id;
+
+        $response = $this
+            ->actingAs($user)
+            ->delete(
+                route('transfers.destroy', $transfer)
+            );
+
+        $response->assertRedirect(
+            route('transactions.index')
+        );
+
+        $response->assertSessionHas(
+            'success',
+            '振替を削除しました。'
+        );
+
+        $this->assertDatabaseMissing(
+            'transfers',
+            [
+                'id' => $transfer->id,
+            ]
+        );
+
+        $this->assertDatabaseMissing(
+            'transactions',
+            [
+                'id' => $fromTransactionId,
+            ]
+        );
+
+        $this->assertDatabaseMissing(
+            'transactions',
+            [
+                'id' => $toTransactionId,
+            ]
+        );
+    }
+
+    public function test_user_cannot_delete_other_users_transfer(): void
+    {
+        [$owner, $transfer] =
+            $this->createTransferData();
+
+        $otherUser = User::factory()->create();
+
+        $response = $this
+            ->actingAs($otherUser)
+            ->delete(
+                route('transfers.destroy', $transfer)
+            );
+
+        $response->assertNotFound();
+
+        $this->assertDatabaseHas(
+            'transfers',
+            [
+                'id' => $transfer->id,
+            ]
+        );
+
+        $this->assertDatabaseHas(
+            'transactions',
+            [
+                'id' => $transfer->from_transaction_id,
+                'user_id' => $owner->id,
+            ]
+        );
+
+        $this->assertDatabaseHas(
+            'transactions',
+            [
+                'id' => $transfer->to_transaction_id,
+                'user_id' => $owner->id,
+            ]
+        );
+    }
+
+    /**
+     * @return array{User, Transfer, Account, Account}
+     */
+    private function createTransferData(): array
+    {
+        $user = User::factory()->create();
+
+        $fromAccount = $this->createAccount(
+            $user,
+            '銀行'
+        );
+
+        $toAccount = $this->createAccount(
+            $user,
+            '現金'
+        );
+
+        $this
+            ->actingAs($user)
+            ->post(
+                route('transfers.store'),
+                [
+                    'transaction_date' => '2026-09-11',
+                    'from_account_id' => $fromAccount->id,
+                    'to_account_id' => $toAccount->id,
+                    'amount' => 10000,
+                ]
+            )
+            ->assertRedirect(
+                route('transactions.index')
+            );
+
+        $transfer = Transfer::query()
+            ->with([
+                'fromTransaction',
+                'toTransaction',
+            ])
+            ->firstOrFail();
+
+        return [
+            $user,
+            $transfer,
+            $fromAccount,
+            $toAccount,
+        ];
     }
 
     private function createAccount(

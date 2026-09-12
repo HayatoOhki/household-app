@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', '振替登録')
+@section('title', '振替編集')
 
 @section('content')
     <header>
@@ -25,9 +25,9 @@
 
             |
 
-            <strong>
+            <a href="{{ route('transfers.create') }}">
                 振替登録
-            </strong>
+            </a>
 
             |
 
@@ -38,7 +38,7 @@
     </header>
 
     <main>
-        <h2>振替登録</h2>
+        <h2>振替編集</h2>
 
         @if ($errors->any())
             <ul>
@@ -52,7 +52,7 @@
 
         @if ($accounts->count() < 2)
             <p>
-                振替を登録するには2つ以上の口座が必要です。
+                振替を編集するには2つ以上の口座が必要です。
 
                 <a href="{{ route('accounts.create') }}">
                     口座を登録
@@ -62,9 +62,10 @@
 
         <form
             method="POST"
-            action="{{ route('transfers.store') }}"
+            action="{{ route('transfers.update', $transfer) }}"
         >
             @csrf
+            @method('PUT')
 
             <div>
                 <label for="transaction_date">
@@ -78,7 +79,10 @@
                     value="{{
                         old(
                             'transaction_date',
-                            now()->format('Y-m-d')
+                            $transfer
+                                ->fromTransaction
+                                ->transaction_date
+                                ->format('Y-m-d')
                         )
                     }}"
                     required
@@ -103,7 +107,12 @@
                         <option
                             value="{{ $account->id }}"
                             @selected(
-                                (string) old('from_account_id')
+                                (string) old(
+                                    'from_account_id',
+                                    $transfer
+                                        ->fromTransaction
+                                        ->account_id
+                                )
                                 === (string) $account->id
                             )
                         >
@@ -131,7 +140,12 @@
                         <option
                             value="{{ $account->id }}"
                             @selected(
-                                (string) old('to_account_id')
+                                (string) old(
+                                    'to_account_id',
+                                    $transfer
+                                        ->toTransaction
+                                        ->account_id
+                                )
                                 === (string) $account->id
                             )
                         >
@@ -150,7 +164,14 @@
                     id="amount"
                     type="number"
                     name="amount"
-                    value="{{ old('amount') }}"
+                    value="{{
+                        old(
+                            'amount',
+                            $transfer
+                                ->fromTransaction
+                                ->amount
+                        )
+                    }}"
                     min="1"
                     step="1"
                     required
@@ -163,8 +184,14 @@
                 type="submit"
                 @disabled($accounts->count() < 2)
             >
-                登録
+                更新
             </button>
         </form>
+
+        <p>
+            <a href="{{ route('transactions.index') }}">
+                一覧へ戻る
+            </a>
+        </p>
     </main>
 @endsection

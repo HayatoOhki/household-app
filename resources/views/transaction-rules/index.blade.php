@@ -6,7 +6,7 @@
     <h1>取引ルール管理</h1>
 
     <p>
-        <a href="{{ route('home') }}">
+        <a href="{{ route('dashboard') }}">
             ホームへ戻る
         </a>
     </p>

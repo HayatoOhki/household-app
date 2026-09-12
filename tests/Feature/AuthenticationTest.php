@@ -29,10 +29,18 @@ class AuthenticationTest extends TestCase
             'email' => 'test@example.com',
         ]);
 
-        $user = User::where('email', 'test@example.com')->first();
+        $user = User::where(
+            'email',
+            'test@example.com'
+        )->first();
 
         $this->assertNotNull($user);
-        $this->assertTrue(Hash::check('password', $user->password));
+        $this->assertTrue(
+            Hash::check(
+                'password',
+                $user->password
+            )
+        );
         $this->assertAuthenticatedAs($user);
     }
 
@@ -76,25 +84,36 @@ class AuthenticationTest extends TestCase
 
         $response = $this->post('/logout');
 
-        $response->assertRedirect(route('login'));
+        $response->assertRedirect(
+            route('login')
+        );
+
         $this->assertGuest();
     }
 
-    public function test_authenticated_user_can_access_home(): void
+    public function test_authenticated_user_can_access_dashboard(): void
     {
         $user = User::factory()->create();
 
-        $response = $this->actingAs($user)->get('/home');
+        $response = $this
+            ->actingAs($user)
+            ->get(
+                route('dashboard')
+            );
 
         $response->assertSuccessful();
         $response->assertSee($user->name);
     }
 
-    public function test_guest_is_redirected_to_login_when_accessing_home(): void
+    public function test_guest_is_redirected_to_login_when_accessing_dashboard(): void
     {
-        $response = $this->get('/home');
+        $response = $this->get(
+            route('dashboard')
+        );
 
-        $response->assertRedirect('/login');
+        $response->assertRedirect(
+            route('login')
+        );
     }
 
     public function test_guest_is_not_authenticated(): void

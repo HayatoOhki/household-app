@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Models\Account;
+use App\Models\Transfer;
 use App\Services\TransactionService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -30,7 +31,119 @@ class TransferController extends Controller
         Request $request,
         TransactionService $transactionService
     ): RedirectResponse {
-        $validated = $request->validate([
+        $validated = $this->validateTransfer($request);
+
+        $fromAccount = Account::findOrFail(
+            $validated['from_account_id']
+        );
+
+        $toAccount = Account::findOrFail(
+            $validated['to_account_id']
+        );
+
+        $transactionService->createTransfer(
+            user: $request->user(),
+            fromAccount: $fromAccount,
+            toAccount: $toAccount,
+            transactionDate: $validated['transaction_date'],
+            amount: (int) $validated['amount'],
+        );
+
+        return redirect()
+            ->route('transactions.index')
+            ->with('success', '振替を登録しました。');
+    }
+
+    public function edit(
+        Request $request,
+        Transfer $transfer
+    ): View {
+        $this->ensureOwnedTransfer(
+            $request,
+            $transfer
+        );
+
+        $transfer->load([
+            'fromTransaction.account',
+            'toTransaction.account',
+        ]);
+
+        $accounts = $request->user()
+            ->accounts()
+            ->orderBy('name')
+            ->get();
+
+        return view(
+            'transfers.edit',
+            compact(
+                'transfer',
+                'accounts'
+            )
+        );
+    }
+
+    public function update(
+        Request $request,
+        Transfer $transfer,
+        TransactionService $transactionService
+    ): RedirectResponse {
+        $this->ensureOwnedTransfer(
+            $request,
+            $transfer
+        );
+
+        $validated = $this->validateTransfer($request);
+
+        $fromAccount = Account::findOrFail(
+            $validated['from_account_id']
+        );
+
+        $toAccount = Account::findOrFail(
+            $validated['to_account_id']
+        );
+
+        $transactionService->updateTransfer(
+            user: $request->user(),
+            transfer: $transfer,
+            fromAccount: $fromAccount,
+            toAccount: $toAccount,
+            transactionDate: $validated['transaction_date'],
+            amount: (int) $validated['amount'],
+        );
+
+        return redirect()
+            ->route('transactions.index')
+            ->with('success', '振替を更新しました。');
+    }
+
+    public function destroy(
+        Request $request,
+        Transfer $transfer,
+        TransactionService $transactionService
+    ): RedirectResponse {
+        $this->ensureOwnedTransfer(
+            $request,
+            $transfer
+        );
+
+        $transactionService->deleteTransfer(
+            user: $request->user(),
+            transfer: $transfer,
+        );
+
+        return redirect()
+            ->route('transactions.index')
+            ->with('success', '振替を削除しました。');
+    }
+
+    /**
+     * 振替入力値を検証する。
+     *
+     * @return array<string, mixed>
+     */
+    private function validateTransfer(Request $request): array
+    {
+        return $request->validate([
             'transaction_date' => [
                 'required',
                 'date',
@@ -58,25 +171,28 @@ class TransferController extends Controller
                 'min:1',
             ],
         ]);
+    }
 
-        $fromAccount = Account::findOrFail(
-            $validated['from_account_id']
+    /**
+     * 操作対象の振替が現在のユーザーのものか確認する。
+     */
+    private function ensureOwnedTransfer(
+        Request $request,
+        Transfer $transfer
+    ): void {
+        $transfer->loadMissing([
+            'fromTransaction',
+            'toTransaction',
+        ]);
+
+        abort_unless(
+            $transfer->fromTransaction !== null
+            && $transfer->toTransaction !== null
+            && $transfer->fromTransaction->user_id
+                === $request->user()->id
+            && $transfer->toTransaction->user_id
+                === $request->user()->id,
+            404
         );
-
-        $toAccount = Account::findOrFail(
-            $validated['to_account_id']
-        );
-
-        $transactionService->createTransfer(
-            user: $request->user(),
-            fromAccount: $fromAccount,
-            toAccount: $toAccount,
-            transactionDate: $validated['transaction_date'],
-            amount: (int) $validated['amount'],
-        );
-
-        return redirect()
-            ->route('transactions.index')
-            ->with('success', '振替を登録しました。');
     }
 }

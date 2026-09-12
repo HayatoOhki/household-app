@@ -7,7 +7,7 @@
         <h1>取引管理</h1>
 
         <p>
-            <a href="{{ route('home') }}">
+            <a href="{{ route('dashboard') }}">
                 ホームへ戻る
             </a>
         </p>

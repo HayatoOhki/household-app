@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', '振替登録')
+@section('title', '初期残高編集')
 
 @section('content')
     <header>
@@ -25,9 +25,9 @@
 
             |
 
-            <strong>
+            <a href="{{ route('transfers.create') }}">
                 振替登録
-            </strong>
+            </a>
 
             |
 
@@ -38,7 +38,12 @@
     </header>
 
     <main>
-        <h2>振替登録</h2>
+        <h2>初期残高編集</h2>
+
+        <p>
+            家計簿の利用開始時点で、
+            口座に存在する残高を編集します。
+        </p>
 
         @if ($errors->any())
             <ul>
@@ -50,25 +55,21 @@
             </ul>
         @endif
 
-        @if ($accounts->count() < 2)
-            <p>
-                振替を登録するには2つ以上の口座が必要です。
-
-                <a href="{{ route('accounts.create') }}">
-                    口座を登録
-                </a>
-            </p>
-        @endif
-
         <form
             method="POST"
-            action="{{ route('transfers.store') }}"
+            action="{{
+                route(
+                    'opening-balances.update',
+                    $openingBalance
+                )
+            }}"
         >
             @csrf
+            @method('PUT')
 
             <div>
                 <label for="transaction_date">
-                    振替日
+                    日付
                 </label>
 
                 <input
@@ -78,7 +79,9 @@
                     value="{{
                         old(
                             'transaction_date',
-                            now()->format('Y-m-d')
+                            $openingBalance
+                                ->transaction_date
+                                ->format('Y-m-d')
                         )
                     }}"
                     required
@@ -86,13 +89,13 @@
             </div>
 
             <div>
-                <label for="from_account_id">
-                    振替元口座
+                <label for="account_id">
+                    口座
                 </label>
 
                 <select
-                    id="from_account_id"
-                    name="from_account_id"
+                    id="account_id"
+                    name="account_id"
                     required
                 >
                     <option value="">
@@ -103,39 +106,27 @@
                         <option
                             value="{{ $account->id }}"
                             @selected(
-                                (string) old('from_account_id')
+                                (string) old(
+                                    'account_id',
+                                    $openingBalance->account_id
+                                )
                                 === (string) $account->id
+                            )
+                            @disabled(
+                                $registeredAccountIds->contains(
+                                    $account->id
+                                )
                             )
                         >
                             {{ $account->name }}
-                        </option>
-                    @endforeach
-                </select>
-            </div>
 
-            <div>
-                <label for="to_account_id">
-                    振替先口座
-                </label>
-
-                <select
-                    id="to_account_id"
-                    name="to_account_id"
-                    required
-                >
-                    <option value="">
-                        選択してください
-                    </option>
-
-                    @foreach ($accounts as $account)
-                        <option
-                            value="{{ $account->id }}"
-                            @selected(
-                                (string) old('to_account_id')
-                                === (string) $account->id
+                            @if (
+                                $registeredAccountIds->contains(
+                                    $account->id
+                                )
                             )
-                        >
-                            {{ $account->name }}
+                                （登録済み）
+                            @endif
                         </option>
                     @endforeach
                 </select>
@@ -143,15 +134,20 @@
 
             <div>
                 <label for="amount">
-                    金額
+                    初期残高
                 </label>
 
                 <input
                     id="amount"
                     type="number"
                     name="amount"
-                    value="{{ old('amount') }}"
-                    min="1"
+                    value="{{
+                        old(
+                            'amount',
+                            $openingBalance->amount
+                        )
+                    }}"
+                    min="0"
                     step="1"
                     required
                 >
@@ -159,12 +155,15 @@
                 <span>円</span>
             </div>
 
-            <button
-                type="submit"
-                @disabled($accounts->count() < 2)
-            >
-                登録
+            <button type="submit">
+                更新
             </button>
         </form>
+
+        <p>
+            <a href="{{ route('transactions.index') }}">
+                一覧へ戻る
+            </a>
+        </p>
     </main>
 @endsection
