@@ -33,11 +33,15 @@ return new class extends Migration
 
             $table->timestamps();
 
-            $table->unique([
-                'user_id',
-                'account_id',
-                'keyword',
-            ]);
+            $table->unique(
+                [
+                    'user_id',
+                    'account_id',
+                    'keyword',
+                    'category_id',
+                ],
+                'transaction_rules_user_account_keyword_category_unique'
+            );
 
             $table->index([
                 'user_id',

@@ -28,9 +28,15 @@ class DashboardController extends Controller
                     $month
                 );
 
+        $creditCardWithdrawals =
+            $this->summaryService
+                ->getCreditCardWithdrawals(
+                    $user
+                );
+
         $accountBalances =
             $this->summaryService
-                ->getAccountBalances(
+                ->getDashboardAccountBalances(
                     $user
                 );
 
@@ -38,6 +44,8 @@ class DashboardController extends Controller
             'dashboard',
             [
                 ...$monthlySummary,
+                'creditCardWithdrawals' =>
+                    $creditCardWithdrawals,
                 'accountBalances' =>
                     $accountBalances,
             ]

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Unit;
 
+use App\Enums\AccountType;
+
 use App\Models\Account;
 use App\Models\Transaction;
 use App\Models\Transfer;
@@ -23,11 +25,13 @@ class TransactionServiceTest extends TestCase
         $fromAccount = Account::create([
             'user_id' => $user->id,
             'name' => '三井住友銀行',
+            'type' => AccountType::BANK
         ]);
 
         $toAccount = Account::create([
             'user_id' => $user->id,
             'name' => '現金',
+            'type' => AccountType::CASH
         ]);
 
         $result = app(TransactionService::class)->createTransfer(
@@ -72,6 +76,7 @@ class TransactionServiceTest extends TestCase
         $account = Account::create([
             'user_id' => $user->id,
             'name' => '三井住友銀行',
+            'type' => AccountType::BANK
         ]);
 
         $this->expectException(\InvalidArgumentException::class);
@@ -93,11 +98,13 @@ class TransactionServiceTest extends TestCase
         $fromAccount = Account::create([
             'user_id' => $user->id,
             'name' => '三井住友銀行',
+            'type' => AccountType::BANK
         ]);
 
         $otherUserAccount = Account::create([
             'user_id' => $otherUser->id,
             'name' => '現金',
+            'type' => AccountType::CASH
         ]);
 
         $this->expectException(\InvalidArgumentException::class);
@@ -118,11 +125,13 @@ class TransactionServiceTest extends TestCase
         $fromAccount = Account::create([
             'user_id' => $user->id,
             'name' => '三井住友銀行',
+            'type' => AccountType::BANK
         ]);
 
         $toAccount = Account::create([
             'user_id' => $user->id,
             'name' => '現金',
+            'type' => AccountType::CASH
         ]);
 
         $this->expectException(\InvalidArgumentException::class);
@@ -143,11 +152,13 @@ class TransactionServiceTest extends TestCase
         $fromAccount = Account::create([
             'user_id' => $user->id,
             'name' => '三井住友銀行',
+            'type' => AccountType::BANK
         ]);
 
         $toAccount = Account::create([
             'user_id' => $user->id,
             'name' => '現金',
+            'type' => AccountType::CASH
         ]);
 
         $this->expectException(\InvalidArgumentException::class);
@@ -168,11 +179,13 @@ class TransactionServiceTest extends TestCase
         $fromAccount = Account::create([
             'user_id' => $user->id,
             'name' => '三井住友銀行',
+            'type' => AccountType::BANK
         ]);
 
         $toAccount = Account::create([
             'user_id' => $user->id,
             'name' => '現金',
+            'type' => AccountType::CASH
         ]);
 
         $result = app(TransactionService::class)->createTransfer(
@@ -194,11 +207,13 @@ class TransactionServiceTest extends TestCase
         $fromAccount = Account::create([
             'user_id' => $user->id,
             'name' => '三井住友銀行',
+            'type' => AccountType::BANK
         ]);
 
         $toAccount = Account::create([
             'user_id' => $user->id,
             'name' => '現金',
+            'type' => AccountType::CASH
         ]);
 
         $result = app(TransactionService::class)->createTransfer(

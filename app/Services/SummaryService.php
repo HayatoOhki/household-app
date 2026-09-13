@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Enums\AccountType;
 use App\Enums\TransactionType;
 use App\Models\User;
 use Carbon\CarbonImmutable;
@@ -176,7 +177,104 @@ class SummaryService
                 return [
                     'account_id' => $account->id,
                     'account_name' => $account->name,
+                    'account_type' => $account->type,
                     'balance' => $balance,
+                ];
+            });
+    }
+
+    /**
+     * @return Collection<int, array{
+     *     account_id: int,
+     *     account_name: string,
+     *     balance: int
+     * }>
+     */
+    public function getDashboardAccountBalances(
+        User $user
+    ): Collection {
+        return $this
+            ->getAccountBalances($user)
+            ->filter(
+                fn (array $accountBalance) =>
+                    $accountBalance['account_type']
+                    !== AccountType::CREDIT_CARD
+            )
+            ->values();
+    }
+
+    /**
+     * @return Collection<int, array{
+     *     account_id: int,
+     *     account_name: string,
+     *     withdrawal_date: ?CarbonImmutable,
+     *     amount: int
+     * }>
+     */
+    public function getCreditCardWithdrawals(
+        User $user
+    ): Collection {
+        $today = CarbonImmutable::today();
+
+        $creditCards = $user
+            ->accounts()
+            ->where(
+                'type',
+                AccountType::CREDIT_CARD->value
+            )
+            ->orderBy('name')
+            ->get();
+
+        return $creditCards
+            ->map(function ($account) use ($user, $today) {
+                $transactions = $user
+                    ->transactions()
+                    ->where(
+                        'account_id',
+                        $account->id
+                    )
+                    ->whereNotNull('withdrawal_date')
+                    ->whereDate(
+                        'withdrawal_date',
+                        '>=',
+                        $today->toDateString()
+                    )
+                    ->orderBy('withdrawal_date')
+                    ->get();
+
+                $nextWithdrawalDate =
+                    $transactions
+                        ->first()
+                        ?->withdrawal_date;
+
+                if ($nextWithdrawalDate === null) {
+                    return [
+                        'account_id' => $account->id,
+                        'account_name' => $account->name,
+                        'withdrawal_date' => null,
+                        'amount' => 0,
+                    ];
+                }
+
+                $amount = $transactions
+                    ->filter(
+                        fn ($transaction) =>
+                            $transaction
+                                ->withdrawal_date
+                                ->isSameDay(
+                                    $nextWithdrawalDate
+                                )
+                    )
+                    ->sum('amount');
+
+                return [
+                    'account_id' => $account->id,
+                    'account_name' => $account->name,
+                    'withdrawal_date' =>
+                        CarbonImmutable::parse(
+                            $nextWithdrawalDate
+                        ),
+                    'amount' => $amount,
                 ];
             });
     }

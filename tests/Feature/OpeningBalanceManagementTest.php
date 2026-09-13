@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Enums\AccountType;
+
 use App\Models\Account;
 use App\Models\Transaction;
 use App\Models\User;
@@ -32,6 +34,7 @@ class OpeningBalanceManagementTest extends TestCase
         Account::create([
             'user_id' => $user->id,
             'name' => '三井住友銀行',
+            'type' => AccountType::BANK,
         ]);
 
         $response = $this
@@ -52,6 +55,7 @@ class OpeningBalanceManagementTest extends TestCase
         $account = Account::create([
             'user_id' => $user->id,
             'name' => '三井住友銀行',
+            'type' => AccountType::BANK,
         ]);
 
         $response = $this
@@ -93,6 +97,7 @@ class OpeningBalanceManagementTest extends TestCase
         $account = Account::create([
             'user_id' => $user->id,
             'name' => '現金',
+            'type' => AccountType::CASH,
         ]);
 
         $response = $this
@@ -128,6 +133,7 @@ class OpeningBalanceManagementTest extends TestCase
         $account = Account::create([
             'user_id' => $user->id,
             'name' => '三井住友銀行',
+            'type' => AccountType::BANK,
         ]);
 
         Transaction::create([
@@ -179,11 +185,13 @@ class OpeningBalanceManagementTest extends TestCase
         $bankAccount = Account::create([
             'user_id' => $user->id,
             'name' => '三井住友銀行',
+            'type' => AccountType::BANK,
         ]);
 
         $cashAccount = Account::create([
             'user_id' => $user->id,
             'name' => '現金',
+            'type' => AccountType::CASH,
         ]);
 
         Transaction::create([
@@ -235,6 +243,7 @@ class OpeningBalanceManagementTest extends TestCase
         $otherAccount = Account::create([
             'user_id' => $otherUser->id,
             'name' => '他人の銀行',
+            'type' => AccountType::BANK,
         ]);
 
         $response = $this
@@ -267,11 +276,13 @@ class OpeningBalanceManagementTest extends TestCase
         Account::create([
             'user_id' => $user->id,
             'name' => '自分の銀行',
+            'type' => AccountType::BANK,
         ]);
 
         Account::create([
             'user_id' => $otherUser->id,
             'name' => '他人の銀行',
+            'type' => AccountType::BANK,
         ]);
 
         $response = $this
@@ -298,6 +309,7 @@ class OpeningBalanceManagementTest extends TestCase
         $account = Account::create([
             'user_id' => $user->id,
             'name' => '三井住友銀行',
+            'type' => AccountType::BANK,
         ]);
 
         Transaction::create([
@@ -331,6 +343,7 @@ class OpeningBalanceManagementTest extends TestCase
         $account = Account::create([
             'user_id' => $user->id,
             'name' => '三井住友銀行',
+            'type' => AccountType::BANK,
         ]);
 
         Transaction::create([
@@ -364,7 +377,7 @@ class OpeningBalanceManagementTest extends TestCase
         );
 
         $response->assertSee(
-            '500,000 円'
+            '500,000円'
         );
     }
 
@@ -397,6 +410,7 @@ class OpeningBalanceManagementTest extends TestCase
         $newAccount = Account::create([
             'user_id' => $user->id,
             'name' => '現金',
+            'type' => AccountType::CASH,
         ]);
 
         $response = $this
@@ -476,6 +490,7 @@ class OpeningBalanceManagementTest extends TestCase
         $otherAccount = Account::create([
             'user_id' => $user->id,
             'name' => '現金',
+            'type' => AccountType::CASH,
         ]);
 
         Transaction::create([
@@ -542,6 +557,7 @@ class OpeningBalanceManagementTest extends TestCase
         $otherAccount = Account::create([
             'user_id' => $otherUser->id,
             'name' => '他人の銀行',
+            'type' => AccountType::BANK,
         ]);
 
         $response = $this
@@ -601,6 +617,7 @@ class OpeningBalanceManagementTest extends TestCase
         $otherAccount = Account::create([
             'user_id' => $otherUser->id,
             'name' => '他人の銀行',
+            'type' => AccountType::BANK,
         ]);
 
         $response = $this
@@ -637,6 +654,7 @@ class OpeningBalanceManagementTest extends TestCase
         $account = Account::create([
             'user_id' => $user->id,
             'name' => '現金',
+            'type' => AccountType::CASH,
         ]);
 
         $transaction = Transaction::create([
@@ -732,6 +750,7 @@ class OpeningBalanceManagementTest extends TestCase
         $account = Account::create([
             'user_id' => $user->id,
             'name' => '現金',
+            'type' => AccountType::CASH,
         ]);
 
         $transaction = Transaction::create([
@@ -772,6 +791,44 @@ class OpeningBalanceManagementTest extends TestCase
     /**
      * @return array{User, Transaction, Account}
      */
+    public function test_opening_balance_cannot_be_edited_from_transaction_route(): void
+    {
+        [$user, $openingBalance] = $this->createOpeningBalanceData();
+
+        $response = $this
+            ->actingAs($user)
+            ->get(route('transactions.edit', $openingBalance));
+
+        $response->assertNotFound();
+    }
+
+    public function test_opening_balance_cannot_be_duplicated_from_transaction_route(): void
+    {
+        [$user, $openingBalance] = $this->createOpeningBalanceData();
+
+        $response = $this
+            ->actingAs($user)
+            ->get(route('transactions.duplicate', $openingBalance));
+
+        $response->assertNotFound();
+    }
+
+    public function test_opening_balance_cannot_be_deleted_from_transaction_route(): void
+    {
+        [$user, $openingBalance] = $this->createOpeningBalanceData();
+
+        $response = $this
+            ->actingAs($user)
+            ->delete(route('transactions.destroy', $openingBalance));
+
+        $response->assertNotFound();
+
+        $this->assertDatabaseHas('transactions', [
+            'id' => $openingBalance->id,
+            'type' => 'opening_balance',
+        ]);
+    }
+
     private function createOpeningBalanceData(): array
     {
         $user = User::factory()->create();
@@ -779,6 +836,7 @@ class OpeningBalanceManagementTest extends TestCase
         $account = Account::create([
             'user_id' => $user->id,
             'name' => '三井住友銀行',
+            'type' => AccountType::BANK,
         ]);
 
         $openingBalance = Transaction::create([

@@ -1,148 +1,262 @@
 @extends('layouts.app')
 
-@section('title', '家計簿')
+@section('title', 'ダッシュボード')
+
+@push('styles')
+    <style>
+        .dashboard-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding-top: 80px;
+        }
+
+        .dashboard-today {
+            margin: 0;
+            color: var(--text-subtle);
+            font-size: 16px;
+            font-weight: 500;
+        }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 18px;
+            margin-bottom: 24px;
+        }
+
+        .summary-card {
+            padding: 22px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+        }
+
+        .summary-card-label {
+            margin: 0 0 8px;
+            color: var(--text-subtle);
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .summary-card-value {
+            margin: 0;
+            font-size: 28px;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .summary-card-income .summary-card-value {
+            color: var(--income);
+        }
+
+        .summary-card-expense .summary-card-value {
+            color: var(--expense);
+        }
+
+        .summary-card-balance .summary-card-value {
+            color: var(--balance);
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.65fr);
+            gap: 24px;
+            align-items: start;
+        }
+
+        .dashboard-grid .panel {
+            margin-top: 0;
+        }
+
+        .withdrawal-date {
+            white-space: nowrap;
+        }
+
+        .no-history {
+            color: var(--text-subtle);
+        }
+
+        .account-balance {
+            font-weight: 600;
+        }
+    </style>
+@endpush
 
 @section('content')
-    <header>
-        <h1>家計簿</h1>
+    <div class="dashboard-content">
+        <header class="page-header">
+            <div>
+                <h1 class="page-title">
+                    ダッシュボード
+                </h1>
+            </div>
 
-        <p>
-            {{ auth()->user()->name }} さん、こんにちは。
-        </p>
+            <p class="dashboard-today">
+                {{ now()->format('Y年m月d日') }}
+            </p>
+        </header>
 
-        <form method="POST" action="{{ route('logout') }}">
-            @csrf
+        <main>
+            <section class="summary-grid">
+                <div class="summary-card summary-card-income">
+                    <p class="summary-card-label">
+                        今月の収入
+                    </p>
 
-            <button type="submit">
-                ログアウト
-            </button>
-        </form>
-    </header>
+                    <p class="summary-card-value">
+                        {{ number_format($monthlyIncome) }}
+                        円
+                    </p>
+                </div>
 
-    <main>
-        <h2>ダッシュボード</h2>
+                <div class="summary-card summary-card-expense">
+                    <p class="summary-card-label">
+                        今月の支出
+                    </p>
 
-        <section>
-            <h3>{{ $month }} の収支</h3>
+                    <p class="summary-card-value">
+                        {{ number_format($monthlyExpense) }}
+                        円
+                    </p>
+                </div>
 
-            <table border="1">
-                <thead>
-                    <tr>
-                        <th>収入</th>
-                        <th>支出</th>
-                        <th>収支</th>
-                    </tr>
-                </thead>
+                <div class="summary-card summary-card-balance">
+                    <p class="summary-card-label">
+                        今月の収支
+                    </p>
 
-                <tbody>
-                    <tr>
-                        <td>
-                            {{ number_format($monthlyIncome) }}
-                            円
-                        </td>
+                    <p class="summary-card-value">
+                        {{ number_format($monthlyBalance) }}
+                        円
+                    </p>
+                </div>
+            </section>
 
-                        <td>
-                            {{ number_format($monthlyExpense) }}
-                            円
-                        </td>
+            <div class="dashboard-grid">
+                <section class="panel">
+                    <div class="panel-header">
+                        <h2 class="panel-title">
+                            クレジットカード引落予定
+                        </h2>
+                    </div>
 
-                        <td>
-                            {{ number_format($monthlyBalance) }}
-                            円
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
-        </section>
+                    @if ($creditCardWithdrawals->isEmpty())
+                        <div class="panel-body">
+                            <p class="empty-message">
+                                クレジットカードが登録されていません。
+                            </p>
+                        </div>
+                    @else
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>
+                                        クレジットカード
+                                    </th>
 
-        <section>
-            <h3>口座残高</h3>
+                                    <th>
+                                        引落予定日
+                                    </th>
 
-            @if ($accountBalances->isEmpty())
-                <p>
-                    口座が登録されていません。
-                </p>
-            @else
-                <table border="1">
-                    <thead>
-                        <tr>
-                            <th>口座</th>
-                            <th>現在残高</th>
-                        </tr>
-                    </thead>
+                                    <th class="amount">
+                                        引落予定額
+                                    </th>
+                                </tr>
+                            </thead>
 
-                    <tbody>
-                        @foreach ($accountBalances as $accountBalance)
-                            <tr>
-                                <td>
-                                    {{ $accountBalance['account_name'] }}
-                                </td>
+                            <tbody>
+                                @foreach (
+                                    $creditCardWithdrawals
+                                    as $creditCardWithdrawal
+                                )
+                                    <tr>
+                                        <td>
+                                            {{ $creditCardWithdrawal['account_name'] }}
+                                        </td>
 
-                                <td>
-                                    {{ number_format($accountBalance['balance']) }}
-                                    円
-                                </td>
-                            </tr>
-                        @endforeach
-                    </tbody>
-                </table>
-            @endif
-        </section>
+                                        <td class="withdrawal-date">
+                                            @if (
+                                                $creditCardWithdrawal['withdrawal_date']
+                                                !== null
+                                            )
+                                                {{ $creditCardWithdrawal['withdrawal_date']
+                                                    ->format('Y年m月d日') }}
+                                            @else
+                                                <span class="no-history">
+                                                    履歴なし
+                                                </span>
+                                            @endif
+                                        </td>
 
-        <section>
-            <h3>メニュー</h3>
+                                        <td class="amount">
+                                            {{ number_format(
+                                                $creditCardWithdrawal['amount']
+                                            ) }}
+                                            円
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    @endif
+                </section>
 
-            <nav>
-                <ul>
-                    <li>
-                        <a href="{{ route('transactions.index') }}">
-                            取引管理
-                        </a>
-                    </li>
+                <section class="panel">
+                    <div class="panel-header">
+                        <h2 class="panel-title">
+                            口座残高
+                        </h2>
+                    </div>
 
-                    <li>
-                        <a href="{{ route('transactions.create') }}">
-                            支出・収入登録
-                        </a>
-                    </li>
+                    @if ($accountBalances->isEmpty())
+                        <div class="panel-body">
+                            <p class="empty-message">
+                                現金・銀行口座が登録されていません。
+                            </p>
+                        </div>
+                    @else
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>
+                                        口座
+                                    </th>
 
-                    <li>
-                        <a href="{{ route('transfers.create') }}">
-                            振替登録
-                        </a>
-                    </li>
+                                    <th class="amount">
+                                        現在残高
+                                    </th>
+                                </tr>
+                            </thead>
 
-                    <li>
-                        <a href="{{ route('opening-balances.create') }}">
-                            初期残高登録
-                        </a>
-                    </li>
+                            <tbody>
+                                @foreach (
+                                    $accountBalances
+                                    as $accountBalance
+                                )
+                                    <tr>
+                                        <td>
+                                            {{ $accountBalance['account_name'] }}
+                                        </td>
 
-                    <li>
-                        <a href="{{ route('summary.index') }}">
-                            集計
-                        </a>
-                    </li>
-
-                    <li>
-                        <a href="{{ route('accounts.index') }}">
-                            口座管理
-                        </a>
-                    </li>
-
-                    <li>
-                        <a href="{{ route('categories.index') }}">
-                            カテゴリ管理
-                        </a>
-                    </li>
-
-                    <li>
-                        <a href="{{ route('transaction-rules.index') }}">
-                            取引ルール管理
-                        </a>
-                    </li>
-                </ul>
-            </nav>
-        </section>
-    </main>
+                                        <td
+                                            class="
+                                                amount
+                                                account-balance
+                                            "
+                                        >
+                                            {{ number_format(
+                                                $accountBalance['balance']
+                                            ) }}
+                                            円
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    @endif
+                </section>
+            </div>
+        </main>
+    </div>
 @endsection

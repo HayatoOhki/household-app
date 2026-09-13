@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Enums\AccountType;
 use App\Enums\TransactionType;
 use App\Models\Account;
 use App\Models\Category;
@@ -142,23 +143,36 @@ class TransactionManagementTest extends TestCase
         ]);
     }
 
-    public function test_transfer_cannot_be_created_from_normal_transaction_form(): void
+    public function test_user_can_create_transfer_from_transaction_store(): void
     {
-        [$user, $account, $category] = $this->createUserData();
+        $user = User::factory()->create();
+
+        $fromAccount = Account::create([
+            'user_id' => $user->id,
+            'name' => '銀行',
+            'type' => AccountType::BANK,
+        ]);
+
+        $toAccount = Account::create([
+            'user_id' => $user->id,
+            'name' => '現金',
+            'type' => AccountType::CASH,
+        ]);
 
         $response = $this
             ->actingAs($user)
             ->post(route('transactions.store'), [
                 'transaction_date' => '2026-09-11',
                 'type' => TransactionType::TRANSFER->value,
-                'account_id' => $account->id,
-                'category_id' => $category->id,
-                'amount' => 1000,
+                'from_account_id' => $fromAccount->id,
+                'to_account_id' => $toAccount->id,
+                'amount' => 10000,
             ]);
 
-        $response->assertSessionHasErrors('type');
+        $response->assertRedirect(route('transactions.index'));
 
-        $this->assertDatabaseCount('transactions', 0);
+        $this->assertDatabaseCount('transfers', 1);
+        $this->assertDatabaseCount('transactions', 2);
     }
 
     public function test_opening_balance_cannot_be_created_from_normal_transaction_form(): void
@@ -473,25 +487,47 @@ class TransactionManagementTest extends TestCase
         ]);
     }
 
-    public function test_transfer_cannot_be_edited_from_normal_transaction_form(): void
+    public function test_user_can_open_transfer_from_transaction_edit_route(): void
     {
-        [$user, $account, $category] = $this->createUserData();
+        $user = User::factory()->create();
 
-        $transaction = $this->createTransaction(
-            $user,
-            $account,
-            $category,
-            [
-                'type' => TransactionType::TRANSFER,
-                'category_id' => null,
-            ]
-        );
+        $fromAccount = Account::create([
+            'user_id' => $user->id,
+            'name' => '銀行',
+            'type' => AccountType::BANK,
+        ]);
+
+        $toAccount = Account::create([
+            'user_id' => $user->id,
+            'name' => '現金',
+            'type' => AccountType::CASH,
+        ]);
+
+        $this
+            ->actingAs($user)
+            ->post(route('transactions.store'), [
+                'transaction_date' => '2026-09-11',
+                'type' => TransactionType::TRANSFER->value,
+                'from_account_id' => $fromAccount->id,
+                'to_account_id' => $toAccount->id,
+                'amount' => 10000,
+            ]);
+
+        $transaction = Transaction::query()
+            ->where('user_id', $user->id)
+            ->where('type', TransactionType::TRANSFER->value)
+            ->whereHas('outgoingTransfer')
+            ->firstOrFail();
 
         $response = $this
             ->actingAs($user)
             ->get(route('transactions.edit', $transaction));
 
-        $response->assertNotFound();
+        $response->assertOk();
+        $response->assertSee('取引編集');
+        $response->assertSee('振替');
+        $response->assertSee('銀行');
+        $response->assertSee('現金');
     }
 
     public function test_opening_balance_cannot_be_edited_from_normal_transaction_form(): void
@@ -557,6 +593,51 @@ class TransactionManagementTest extends TestCase
         ]);
     }
 
+    public function test_credit_card_expense_requires_withdrawal_date(): void
+    {
+        [$user, , $category] = $this->createUserData();
+
+        $creditCard = Account::create([
+            'user_id' => $user->id,
+            'name' => '楽天カード',
+            'type' => AccountType::CREDIT_CARD,
+        ]);
+
+        $response = $this
+            ->actingAs($user)
+            ->post(route('transactions.store'), [
+                'transaction_date' => '2026-09-11',
+                'type' => TransactionType::EXPENSE->value,
+                'account_id' => $creditCard->id,
+                'category_id' => $category->id,
+                'amount' => 3500,
+                'expense_ratio' => 0,
+            ]);
+
+        $response->assertSessionHasErrors('withdrawal_date');
+    }
+
+    public function test_user_can_open_duplicate_as_transaction_create_page(): void
+    {
+        [$user, $account, $category] = $this->createUserData();
+
+        $transaction = $this->createTransaction(
+            $user,
+            $account,
+            $category
+        );
+
+        $response = $this
+            ->actingAs($user)
+            ->get(route('transactions.duplicate', $transaction));
+
+        $response->assertOk();
+        $response->assertSee('取引登録');
+        $response->assertDontSee('取引複製');
+        $response->assertSee('Amazon');
+        $response->assertSee('3500');
+    }
+
     private function createUserData(): array
     {
         $user = User::factory()->create();
@@ -564,6 +645,7 @@ class TransactionManagementTest extends TestCase
         $account = Account::create([
             'user_id' => $user->id,
             'name' => '現金',
+            'type' => AccountType::CASH,
         ]);
 
         $category = Category::create([

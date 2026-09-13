@@ -20,13 +20,7 @@
             |
 
             <a href="{{ route('transactions.create') }}">
-                支出・収入登録
-            </a>
-
-            |
-
-            <a href="{{ route('transfers.create') }}">
-                振替登録
+                取引登録
             </a>
 
             |

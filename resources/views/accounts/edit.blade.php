@@ -40,10 +40,39 @@
                     id="name"
                     type="text"
                     name="name"
-                    value="{{ old('name', $account->name) }}"
+                    value="{{ old(
+                        'name',
+                        $account->name
+                    ) }}"
                     maxlength="100"
                     required
                 >
+            </div>
+
+            <div>
+                <label for="type">
+                    口座種別
+                </label>
+
+                <select
+                    id="type"
+                    name="type"
+                    required
+                >
+                    @foreach ($accountTypes as $accountType)
+                        <option
+                            value="{{ $accountType->value }}"
+                            @selected(
+                                old(
+                                    'type',
+                                    $account->type->value
+                                ) === $accountType->value
+                            )
+                        >
+                            {{ $accountType->label() }}
+                        </option>
+                    @endforeach
+                </select>
             </div>
 
             <button type="submit">

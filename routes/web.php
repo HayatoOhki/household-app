@@ -7,7 +7,6 @@ use App\Http\Controllers\OpeningBalanceController;
 use App\Http\Controllers\SummaryController;
 use App\Http\Controllers\TransactionController;
 use App\Http\Controllers\TransactionRuleController;
-use App\Http\Controllers\TransferController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('auth')->group(function () {
@@ -30,6 +29,16 @@ Route::middleware('auth')->group(function () {
         'show',
     ]);
 
+    Route::patch(
+        '/transactions/{transaction}/status',
+        [TransactionController::class, 'updateStatus']
+    )->name('transactions.status');
+
+    Route::get(
+        '/transactions/{transaction}/duplicate',
+        [TransactionController::class, 'duplicate']
+    )->name('transactions.duplicate');
+
     Route::resource(
         'transactions',
         TransactionController::class
@@ -42,30 +51,6 @@ Route::middleware('auth')->group(function () {
         'destroy',
     ]);
 
-    Route::get(
-        '/transfers/create',
-        [TransferController::class, 'create']
-    )->name('transfers.create');
-
-    Route::post(
-        '/transfers',
-        [TransferController::class, 'store']
-    )->name('transfers.store');
-
-    Route::get(
-        '/transfers/{transfer}/edit',
-        [TransferController::class, 'edit']
-    )->name('transfers.edit');
-
-    Route::put(
-        '/transfers/{transfer}',
-        [TransferController::class, 'update']
-    )->name('transfers.update');
-
-    Route::delete(
-        '/transfers/{transfer}',
-        [TransferController::class, 'destroy']
-    )->name('transfers.destroy');
 
     Route::resource(
         'transaction-rules',

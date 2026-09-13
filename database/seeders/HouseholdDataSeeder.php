@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Database\Seeders;
 
+use App\Enums\AccountType;
 use App\Enums\TransactionType;
 use App\Models\Account;
 use App\Models\Category;
@@ -28,6 +29,8 @@ class HouseholdDataSeeder extends Seeder
 
         foreach ([
             '食費',
+            '日用品',
+            '家電',
             '交通費',
             '家賃',
             '給与',
@@ -41,14 +44,26 @@ class HouseholdDataSeeder extends Seeder
 
         $accounts = [];
 
-        foreach ([
-            '現金',
-            '三井住友銀行',
-            'クレジットカード',
-        ] as $name) {
-            $accounts[$name] = Account::create([
+        $accountData = [
+            [
+                'name' => '現金',
+                'type' => AccountType::CASH,
+            ],
+            [
+                'name' => '三井住友銀行',
+                'type' => AccountType::BANK,
+            ],
+            [
+                'name' => 'クレジットカード',
+                'type' => AccountType::CREDIT_CARD,
+            ],
+        ];
+
+        foreach ($accountData as $data) {
+            $accounts[$data['name']] = Account::create([
                 'user_id' => $user->id,
-                'name' => $name,
+                'name' => $data['name'],
+                'type' => $data['type'],
             ]);
         }
 
@@ -88,6 +103,7 @@ class HouseholdDataSeeder extends Seeder
             'category_id' => $categories['家賃']->id,
             'counterparty_name' => 'ﾔﾁﾝ',
             'amount' => 100000,
+            'withdrawal_date' => null,
             'expense_ratio' => 40,
             'expense_registered' => false,
             'receipt_saved' => false,
@@ -99,7 +115,7 @@ class HouseholdDataSeeder extends Seeder
             'type' => TransactionType::EXPENSE,
             'account_id' => $accounts['クレジットカード']->id,
             'category_id' => $categories['食費']->id,
-            'counterparty_name' => 'Amazon',
+            'counterparty_name' => 'AMAZON.CO.JP',
             'amount' => 3500,
             'withdrawal_date' => '2026-08-27',
             'expense_ratio' => 0,
@@ -115,6 +131,7 @@ class HouseholdDataSeeder extends Seeder
             'category_id' => $categories['給与']->id,
             'counterparty_name' => '会社',
             'amount' => 300000,
+            'withdrawal_date' => null,
             'expense_ratio' => 100,
             'expense_registered' => false,
             'receipt_saved' => false,
@@ -135,5 +152,19 @@ class HouseholdDataSeeder extends Seeder
             'display_name' => '家賃',
             'category_id' => $categories['家賃']->id,
         ]);
+
+        foreach ([
+            '食費',
+            '日用品',
+            '家電',
+        ] as $categoryName) {
+            TransactionRule::create([
+                'user_id' => $user->id,
+                'account_id' => $accounts['クレジットカード']->id,
+                'keyword' => 'AMAZON.CO.JP',
+                'display_name' => 'Amazon',
+                'category_id' => $categories[$categoryName]->id,
+            ]);
+        }
     }
 }

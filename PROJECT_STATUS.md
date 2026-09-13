@@ -42,16 +42,16 @@ Household App
 │   └─ 領収書管理                ← 未実装
 │
 └─ UI / レポート
-    ├─ 正式Tailwind UI           ← 未実装
+    ├─ 正式UI / Tailwind          ← 一部実装・画面単位で整備中
     ├─ 年間集計                  ← 後回し
     ├─ グラフ                    ← 後回し
     ├─ 前月比較                  ← 後回し
     └─ 詳細レポート              ← 後回し
 ```
 
-現在は、**家計簿として必要な主要入力・編集・削除・最低限の集計・Dashboardまで実装済み**。
+現在は、**家計簿として必要な主要入力・編集・削除・最低限の集計・Dashboardまで実装済み**。取引登録・編集は支出 / 収入 / 振替へ統合し、主要画面の正式UI化も進行中。
 
-次のフェーズは、実際に一通り使用してワークフロー・不足機能・必要情報を確認し、その後に正式UI・表示拡張へ進む。
+次のフェーズは、実データ移行も交えながら画面単位で正式UIを整備し、その過程で不足機能・使いにくさを発見して追加・修正する。
 
 ------------------------------------------------------------------------
 
@@ -106,16 +106,17 @@ app/Models/Transaction.php の現在の内容を出してください。
 
 ## 現在のフェーズ
 
-**主要機能の最低限実装フェーズは一区切り。**
+**主要機能の最低限実装は一区切り。現在は正式UI整備 + 実利用ベースの機能調整フェーズ。**
 
 実装・動作確認済み：
 
 -   Laravel / Docker 開発基盤
 -   Fortify認証
--   Account CRUD
+-   Account CRUD / AccountType（cash / bank / credit_card）
 -   Category CRUD
--   通常Transaction（支出・収入）CRUD
--   Transfer CRUD
+-   Transaction（支出・収入・振替）統合CRUD
+-   TransferはTransaction画面・routeへ統合
+-   Transaction複製（登録画面へのプリフィル）
 -   Opening Balance CRUD
 -   TransactionRule CRUD
 -   TransactionRule表示名変換
@@ -132,13 +133,11 @@ app/Models/Transaction.php の現在の内容を出してください。
 ``` text
 主要機能の最低限実装
         ↓
-実際に一通り使用する        ← 次
+正式UI / Tailwindを画面単位で整備        ← 現在
         ↓
-不足機能・使いにくさを洗い出す
+実データ移行・実利用で不足機能を発見
         ↓
-必要な機能修正
-        ↓
-正式UI / Tailwind
+必要な機能をその画面で追加・修正
         ↓
 年間集計・グラフ・前月比較等の表示拡張
         ↓
@@ -222,6 +221,7 @@ Laravel標準ユーザー情報。 Fortify用情報を含む。
 
 -   `user_id`
 -   `name`
+-   `type`（cash / bank / credit_card）
 
 制約：
 
@@ -236,6 +236,7 @@ Laravel標準ユーザー情報。 Fortify用情報を含む。
 
 -   `user_id`
 -   `name`
+-   `type`（cash / bank / credit_card）
 
 制約：
 
@@ -297,9 +298,9 @@ Laravel標準ユーザー情報。 Fortify用情報を含む。
 
 制約：
 
--   `(user_id, account_id, keyword)` unique
+-   `(user_id, account_id, keyword, category_id)` unique
 -   `account_id` 必須
--   同じkeywordでも口座が異なれば登録可能
+-   同じkeywordでもカテゴリまたは口座が異なれば登録可能
 -   `priority` は使用しない
 
 ------------------------------------------------------------------------
@@ -419,19 +420,19 @@ Transfer
 
 # 8. Normal Transaction
 
-通常Transaction UIは `expense` / `income` 専用。
+Transaction登録・編集UIは `expense` / `income` / `transfer` を同一画面で扱う。
 
-Transfer / Opening Balanceは専用Controller / UIから扱う。
+Opening Balanceのみ専用Controller / UIから扱う。
 
 ## 入力項目
 
 -   transaction_date：必須
--   type：expense / income
+-   type：expense / income / transfer
 -   amount：1円以上の整数
 -   account：必須
 -   category：必須
 -   counterparty_name：任意
--   withdrawal_date：expenseで使用
+-   withdrawal_date：expense + credit_card の場合のみ入力・必須
 -   expense_ratio：expense / income双方で使用可能
 
 ## 重要仕様
@@ -508,11 +509,11 @@ Opening Balanceは `TransactionType::OPENING_BALANCE`
 
 # 11. TransactionRule
 
-Ruleは口座単位。
+Ruleは口座 + keyword + category単位の入力テンプレートとして扱う。UI上の名称は「入力テンプレート」。
 
 ## 仕様
 
--   `(user_id, account_id, keyword)` unique
+-   `(user_id, account_id, keyword, category_id)` unique
 -   同一keywordでも口座が異なれば登録可能
 -   `priority` は使用しない
 -   raw `counterparty_name` はDBへそのまま保存
@@ -619,7 +620,8 @@ View       dashboard.blade.php
 -   今月の収入
 -   今月の支出
 -   今月の収支
--   現在の口座残高
+-   クレジットカード引落予定（全カード。未来の最寄り引落日とその金額）
+-   現在の口座残高（cash / bank。credit_cardは除外）
 -   各管理画面へのメニュー
 -   ログアウト
 
@@ -701,7 +703,7 @@ Sample TransactionRule：
 
 ## 最新確認結果
 
-**143 passed / 451 assertions / 1.99s**
+**144 passed / 429 assertions / 1.99s**
 
 全件PASS確認済み。
 
@@ -876,15 +878,22 @@ route('dashboard')
 
 ## Transfer
 
--   create
--   store
--   edit
--   update
--   destroy
+独立したTransfer routeは廃止済み。
+登録・編集・更新・削除・複製はTransaction routeへ統合。
 
 ## TransactionRule
 
 `/transaction-rules` CRUD（show除外）
+
+## Transaction Duplicate
+
+通常取引・振替はTransaction一覧から複製可能。即時INSERTはせず、Transaction登録画面をコピー値でプリフィルする。
+
+- 日付：今日
+- type / amount / account / category / counterparty / expense_ratio：コピー
+- withdrawal_date：空欄
+- expense_registered / receipt_saved：false
+- 画面文言は通常の「取引登録」「登録する」
 
 ## Opening Balance
 
@@ -954,8 +963,7 @@ route('summary.index')
 
 ## Transfer
 
--   `resources/views/transfers/create.blade.php`
--   `resources/views/transfers/edit.blade.php`
+-   独立したTransfer viewは廃止済み（Transaction create / editへ統合）
 
 ## TransactionRule
 
@@ -974,7 +982,7 @@ route('summary.index')
 
 ## UI方針
 
-現在の各画面は機能確認を優先した最低限UI。
+PC専用の固定左サイドバー + メイン領域を基本レイアウトとして、正式UIを画面単位で整備中。DashboardとTransaction一覧・登録・編集は正式UI化を進めている。
 
 正式UIフェーズでは、
 
@@ -985,7 +993,6 @@ route('summary.index')
 -   余白
 -   ボタン
 -   テーブル
--   レスポンシブ
 -   Dashboard情報設計
 
 等をまとめて整える。
@@ -1078,10 +1085,19 @@ Transfer
 
 ## TransactionRule
 
-Ruleは口座単位。
+Ruleは口座 + keyword + category単位の入力テンプレートとして扱う。UI上の名称は「入力テンプレート」。
 
 raw `counterparty_name` を保存し、`display_name` は表示時のみ使用。
 categoryは入力補助。
+
+## Account Type
+
+Accountは `cash` / `bank` / `credit_card` を持つ。
+
+- Dashboard口座残高はcash / bankのみ
+- credit_cardはクレジットカード引落予定へ表示
+- expense + credit_card の場合のみwithdrawal_date必須
+- income + credit_card はカード返金・取消等の入金として扱える
 
 ## Withdrawal
 
@@ -1148,6 +1164,7 @@ Blade + Tailwind方針。 Reactは採用しない。
 app/
 ├── Actions/Fortify/
 ├── Enums/
+│   ├── AccountType.php
 │   └── TransactionType.php
 ├── Http/
 │   ├── Controllers/
@@ -1157,8 +1174,7 @@ app/
 │   │   ├── OpeningBalanceController.php
 │   │   ├── SummaryController.php
 │   │   ├── TransactionController.php
-│   │   ├── TransactionRuleController.php
-│   │   └── TransferController.php
+│   │   └── TransactionRuleController.php
 │   └── Responses/
 │       └── LogoutResponse.php
 ├── Models/
@@ -1204,9 +1220,6 @@ resources/views/
 │   └── edit.blade.php
 ├── transactions/
 │   ├── index.blade.php
-│   ├── create.blade.php
-│   └── edit.blade.php
-├── transfers/
 │   ├── create.blade.php
 │   └── edit.blade.php
 ├── transaction-rules/
@@ -1393,7 +1406,7 @@ e-Tax提出用データ生成
 
 最新テスト：
 
-**143 passed / 451 assertions / 1.99s**
+**144 passed / 429 assertions / 1.99s**
 
 次にGitへ反映する場合は、変更内容確認後にcommit / pushする。
 
@@ -1422,11 +1435,11 @@ e-Tax提出用データ生成
 -   [x] Transaction金額JPY整数化
 -   [x] Account CRUD
 -   [x] Category CRUD
--   [x] Transaction支出 / 収入 CRUD
--   [x] Transfer登録
+-   [x] Transaction支出 / 収入 / 振替 統合CRUD
 -   [x] Transfer一覧1行表示
--   [x] Transfer編集 / 更新
--   [x] Transfer削除
+-   [x] Transfer登録 / 編集 / 更新 / 削除をTransaction routeへ統合
+-   [x] Transaction複製（通常取引 / 振替）
+-   [x] Opening Balanceを通常Transaction routeから操作禁止
 -   [x] TransactionRule CRUD
 -   [x] TransactionRule表示名変換
 -   [x] TransactionRuleカテゴリ入力補助
@@ -1440,7 +1453,11 @@ e-Tax提出用データ生成
 -   [x] 現在口座残高
 -   [x] SummaryService
 -   [x] Summary最低限UI
--   [x] Dashboard最低限UI
+-   [x] Dashboard正式UI
+-   [x] Dashboardクレジットカード引落予定
+-   [x] 固定左サイドバー共通レイアウト
+-   [x] Transaction一覧正式UI
+-   [x] Transaction登録 / 編集の支出・収入・振替統合UI
 -   [x] `/` Dashboard化
 -   [x] `/home` 廃止
 -   [x] `route('dashboard')` 統一
@@ -1449,17 +1466,14 @@ e-Tax提出用データ生成
 -   [x] `migrate:fresh --seed` 動作確認
 -   [x] `test-result.txt` によるテスト結果共有
 -   [x] Unit / Feature Test
--   [x] 143 tests / 451 assertions PASS
+-   [x] 144 tests / 429 assertions PASS
 
 ## 次フェーズ
 
--   [ ] 実際に一通り使用する
--   [ ] 入力・編集・削除・集計のワークフロー確認
--   [ ] 不足機能の洗い出し
--   [ ] 使いにくい部分の洗い出し
--   [ ] 必要な機能修正
--   [ ] 正式UI / Tailwind
--   [ ] レスポンシブ対応
+-   [ ] 正式UI / Tailwindを残り画面へ展開
+-   [ ] Excelの実データを移行しながら実利用確認
+-   [ ] 不足機能・使いにくさを画面単位で洗い出す
+-   [ ] 必要な機能をその都度追加・修正
 
 ## 後回し可能な表示拡張
 
@@ -1492,28 +1506,20 @@ e-Tax提出用データ生成
 
 # 24. Recommended Next Implementation
 
-現在は新しい機能をすぐ追加するより、まず現在の最低限版を実際に使う。
+現在は残り画面の正式UI化を進めながら、実データ移行・実利用で必要になった機能をその場で追加する。
 
 推奨：
 
 ``` text
-migrate:fresh --seed 等で確認データを準備
+残りの正式UI対象画面を1つ選ぶ
         ↓
-Dashboard
+その画面をPC向け正式UIへ整える
         ↓
-支出・収入登録
+実データ・実利用で不足機能を確認
         ↓
-振替登録・編集・削除
+必要ならその場で機能追加
         ↓
-初期残高登録・編集・削除
-        ↓
-TransactionRule
-        ↓
-Transaction一覧
-        ↓
-Summary
-        ↓
-一連の操作で不足をメモ
+次の画面へ進む
 ```
 
 確認ポイント：
@@ -1535,9 +1541,7 @@ Summary
 
 現在の状態を一言で表すと：
 
-**「認証から主要な家計簿CRUD、振替、初期残高、取引ルール、月間集計、口座残高、Dashboardまで最低限版が完成し、143
-tests / 451 assertions
-が全PASS。次は実利用ベースで不足機能を洗い出し、その後正式UIへ進む段階。」**
+**「主要な家計簿機能が完成し、支出・収入・振替の登録・編集導線もTransactionへ統合済み。正式UIを画面単位で整備しながら実データ・実利用で不足機能を追加する段階。144 tests / 429 assertions が全PASS。」**
 
 特に重要：
 
@@ -1553,10 +1557,10 @@ tests / 451 assertions
 -   月間収支ではTransfer / Opening Balanceを除外
 -   口座残高ではTransfer / Opening Balanceを正しく反映
 -   SummaryServiceで集計ロジック共通化
--   正式UIはまだ
+-   正式UIは画面単位で整備中（PC専用）
 -   年間集計・グラフ等は後回し可能
 -   会計拡張のためのTransaction必須カラム追加は現時点で不要
--   最新テストは **143 passed / 451 assertions / 1.99s**
+-   最新テストは **144 passed / 429 assertions / 1.99s**
 -   最新Git push状態は未確認
 
 ------------------------------------------------------------------------
@@ -1570,7 +1574,7 @@ tests / 451 assertions
 > 続きから実装始めたい
 
 と言った場合は、原則として
-**実利用によるワークフロー確認・不足機能洗い出し** から開始する。
+**正式UIの次対象画面を決め、実利用で必要になった機能を同時に調整する** ところから開始する。
 
 ただし現在の会話で、より新しい具体的な実装対象が決まっている場合はそちらを優先する。
 

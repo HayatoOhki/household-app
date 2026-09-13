@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Enums\AccountType;
+
 use App\Models\Account;
 use App\Models\Category;
 use App\Models\Transaction;
@@ -38,7 +40,7 @@ class TransactionRuleManagementTest extends TestCase
             );
 
         $response->assertOk();
-        $response->assertSee('取引ルール');
+        $response->assertSee('入力テンプレート');
     }
 
     public function test_authenticated_user_can_open_transaction_rule_create_page(): void
@@ -48,6 +50,7 @@ class TransactionRuleManagementTest extends TestCase
         Account::create([
             'user_id' => $user->id,
             'name' => '三井住友銀行',
+            'type' => AccountType::BANK,
         ]);
 
         Category::create([
@@ -73,6 +76,7 @@ class TransactionRuleManagementTest extends TestCase
         $account = Account::create([
             'user_id' => $user->id,
             'name' => '三井住友銀行',
+            'type' => AccountType::BANK,
         ]);
 
         $category = Category::create([
@@ -108,50 +112,96 @@ class TransactionRuleManagementTest extends TestCase
         );
     }
 
-    public function test_same_keyword_cannot_be_registered_twice_for_same_account(): void
+    public function test_same_keyword_and_category_cannot_be_registered_twice_for_same_account(): void
     {
         $user = User::factory()->create();
 
         $account = Account::create([
             'user_id' => $user->id,
-            'name' => '三井住友銀行',
+            'name' => '楽天カード',
+            'type' => AccountType::CREDIT_CARD,
+        ]);
+
+        $category = Category::create([
+            'user_id' => $user->id,
+            'name' => '食費',
         ]);
 
         TransactionRule::create([
             'user_id' => $user->id,
             'account_id' => $account->id,
-            'keyword' => 'test',
-            'display_name' => 'テスト',
-            'category_id' => null,
+            'keyword' => 'AMAZON.CO.JP',
+            'display_name' => 'Amazon',
+            'category_id' => $category->id,
         ]);
 
         $response = $this
             ->actingAs($user)
-            ->from(
-                route('transaction-rules.create')
-            )
-            ->post(
-                route('transaction-rules.store'),
-                [
-                    'account_id' => $account->id,
-                    'keyword' => 'test',
-                    'display_name' => '別テスト',
-                    'category_id' => null,
-                ]
-            );
+            ->from(route('transaction-rules.create'))
+            ->post(route('transaction-rules.store'), [
+                'account_id' => $account->id,
+                'keyword' => 'AMAZON.CO.JP',
+                'display_name' => 'Amazon',
+                'category_id' => $category->id,
+            ]);
 
-        $response->assertRedirect(
-            route('transaction-rules.create')
-        );
+        $response->assertRedirect(route('transaction-rules.create'));
+        $response->assertSessionHasErrors('keyword');
+        $this->assertDatabaseCount('transaction_rules', 1);
+    }
 
-        $response->assertSessionHasErrors(
-            'keyword'
-        );
+    public function test_same_keyword_can_be_registered_for_different_categories_on_same_account(): void
+    {
+        $user = User::factory()->create();
 
-        $this->assertDatabaseCount(
-            'transaction_rules',
-            1
-        );
+        $account = Account::create([
+            'user_id' => $user->id,
+            'name' => '楽天カード',
+            'type' => AccountType::CREDIT_CARD,
+        ]);
+
+        $food = Category::create([
+            'user_id' => $user->id,
+            'name' => '食費',
+        ]);
+
+        $dailyGoods = Category::create([
+            'user_id' => $user->id,
+            'name' => '日用品',
+        ]);
+
+        TransactionRule::create([
+            'user_id' => $user->id,
+            'account_id' => $account->id,
+            'keyword' => 'AMAZON.CO.JP',
+            'display_name' => 'Amazon',
+            'category_id' => $food->id,
+        ]);
+
+        $response = $this
+            ->actingAs($user)
+            ->post(route('transaction-rules.store'), [
+                'account_id' => $account->id,
+                'keyword' => 'AMAZON.CO.JP',
+                'display_name' => 'Amazon',
+                'category_id' => $dailyGoods->id,
+            ]);
+
+        $response->assertRedirect(route('transaction-rules.index'));
+
+        $this->assertDatabaseHas('transaction_rules', [
+            'user_id' => $user->id,
+            'account_id' => $account->id,
+            'keyword' => 'AMAZON.CO.JP',
+            'category_id' => $food->id,
+        ]);
+
+        $this->assertDatabaseHas('transaction_rules', [
+            'user_id' => $user->id,
+            'account_id' => $account->id,
+            'keyword' => 'AMAZON.CO.JP',
+            'category_id' => $dailyGoods->id,
+        ]);
     }
 
     public function test_same_keyword_can_be_registered_for_different_accounts(): void
@@ -161,11 +211,13 @@ class TransactionRuleManagementTest extends TestCase
         $bankAccount = Account::create([
             'user_id' => $user->id,
             'name' => '三井住友銀行',
+            'type' => AccountType::BANK,
         ]);
 
         $creditCardAccount = Account::create([
             'user_id' => $user->id,
             'name' => 'クレジットカード',
+            'type' => AccountType::CREDIT_CARD,
         ]);
 
         TransactionRule::create([
@@ -222,6 +274,7 @@ class TransactionRuleManagementTest extends TestCase
         $otherAccount = Account::create([
             'user_id' => $otherUser->id,
             'name' => '他人の銀行',
+            'type' => AccountType::BANK,
         ]);
 
         $response = $this
@@ -255,6 +308,7 @@ class TransactionRuleManagementTest extends TestCase
         $account = Account::create([
             'user_id' => $user->id,
             'name' => '三井住友銀行',
+            'type' => AccountType::BANK,
         ]);
 
         $otherCategory = Category::create([
@@ -293,11 +347,13 @@ class TransactionRuleManagementTest extends TestCase
         Account::create([
             'user_id' => $user->id,
             'name' => '自分の銀行',
+            'type' => AccountType::BANK,
         ]);
 
         Account::create([
             'user_id' => $otherUser->id,
             'name' => '他人の銀行',
+            'type' => AccountType::BANK,
         ]);
 
         Category::create([
@@ -342,6 +398,7 @@ class TransactionRuleManagementTest extends TestCase
         $account = Account::create([
             'user_id' => $user->id,
             'name' => '三井住友銀行',
+            'type' => AccountType::BANK,
         ]);
 
         $category = Category::create([
@@ -398,6 +455,7 @@ class TransactionRuleManagementTest extends TestCase
         $otherAccount = Account::create([
             'user_id' => $otherUser->id,
             'name' => '他人の銀行',
+            'type' => AccountType::BANK,
         ]);
 
         $rule = TransactionRule::create([
@@ -429,11 +487,13 @@ class TransactionRuleManagementTest extends TestCase
         $userAccount = Account::create([
             'user_id' => $user->id,
             'name' => '自分の銀行',
+            'type' => AccountType::BANK,
         ]);
 
         $otherAccount = Account::create([
             'user_id' => $otherUser->id,
             'name' => '他人の銀行',
+            'type' => AccountType::BANK,
         ]);
 
         $rule = TransactionRule::create([
@@ -478,6 +538,7 @@ class TransactionRuleManagementTest extends TestCase
         $account = Account::create([
             'user_id' => $user->id,
             'name' => '三井住友銀行',
+            'type' => AccountType::BANK,
         ]);
 
         $rule = TransactionRule::create([
@@ -518,6 +579,7 @@ class TransactionRuleManagementTest extends TestCase
         $otherAccount = Account::create([
             'user_id' => $otherUser->id,
             'name' => '他人の銀行',
+            'type' => AccountType::BANK,
         ]);
 
         $rule = TransactionRule::create([
@@ -554,6 +616,7 @@ class TransactionRuleManagementTest extends TestCase
         $account = Account::create([
             'user_id' => $user->id,
             'name' => '三井住友銀行',
+            'type' => AccountType::BANK,
         ]);
 
         $category = Category::create([
@@ -590,6 +653,7 @@ class TransactionRuleManagementTest extends TestCase
         $account = Account::create([
             'user_id' => $user->id,
             'name' => '三井住友銀行',
+            'type' => AccountType::BANK,
         ]);
 
         $category = Category::create([
@@ -652,11 +716,13 @@ class TransactionRuleManagementTest extends TestCase
         $bankAccount = Account::create([
             'user_id' => $user->id,
             'name' => '三井住友銀行',
+            'type' => AccountType::BANK,
         ]);
 
         $creditCardAccount = Account::create([
             'user_id' => $user->id,
             'name' => 'クレジットカード',
+            'type' => AccountType::CREDIT_CARD,
         ]);
 
         $category = Category::create([

@@ -22,6 +22,7 @@ class TransactionRuleController extends Controller
             ])
             ->orderBy('account_id')
             ->orderBy('keyword')
+            ->orderBy('category_id')
             ->get();
 
         return view(
@@ -53,46 +54,7 @@ class TransactionRuleController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'account_id' => [
-                'required',
-                Rule::exists('accounts', 'id')
-                    ->where(
-                        'user_id',
-                        $request->user()->id
-                    ),
-            ],
-            'keyword' => [
-                'required',
-                'string',
-                'max:255',
-                Rule::unique('transaction_rules', 'keyword')
-                    ->where(
-                        fn ($query) => $query
-                            ->where(
-                                'user_id',
-                                $request->user()->id
-                            )
-                            ->where(
-                                'account_id',
-                                $request->input('account_id')
-                            )
-                    ),
-            ],
-            'display_name' => [
-                'nullable',
-                'string',
-                'max:255',
-            ],
-            'category_id' => [
-                'nullable',
-                Rule::exists('categories', 'id')
-                    ->where(
-                        'user_id',
-                        $request->user()->id
-                    ),
-            ],
-        ]);
+        $validated = $this->validateTransactionRule($request);
 
         $request->user()
             ->transactionRules()
@@ -105,7 +67,7 @@ class TransactionRuleController extends Controller
 
         return redirect()
             ->route('transaction-rules.index')
-            ->with('success', '取引ルールを登録しました。');
+            ->with('success', '入力テンプレートを登録しました。');
     }
 
     public function edit(
@@ -146,47 +108,10 @@ class TransactionRuleController extends Controller
             $transactionRule
         );
 
-        $validated = $request->validate([
-            'account_id' => [
-                'required',
-                Rule::exists('accounts', 'id')
-                    ->where(
-                        'user_id',
-                        $request->user()->id
-                    ),
-            ],
-            'keyword' => [
-                'required',
-                'string',
-                'max:255',
-                Rule::unique('transaction_rules', 'keyword')
-                    ->where(
-                        fn ($query) => $query
-                            ->where(
-                                'user_id',
-                                $request->user()->id
-                            )
-                            ->where(
-                                'account_id',
-                                $request->input('account_id')
-                            )
-                    )
-                    ->ignore($transactionRule->id),
-            ],
-            'display_name' => [
-                'nullable',
-                'string',
-                'max:255',
-            ],
-            'category_id' => [
-                'nullable',
-                Rule::exists('categories', 'id')
-                    ->where(
-                        'user_id',
-                        $request->user()->id
-                    ),
-            ],
-        ]);
+        $validated = $this->validateTransactionRule(
+            $request,
+            $transactionRule
+        );
 
         $transactionRule->update([
             'account_id' => $validated['account_id'],
@@ -197,7 +122,7 @@ class TransactionRuleController extends Controller
 
         return redirect()
             ->route('transaction-rules.index')
-            ->with('success', '取引ルールを更新しました。');
+            ->with('success', '入力テンプレートを更新しました。');
     }
 
     public function destroy(
@@ -213,7 +138,72 @@ class TransactionRuleController extends Controller
 
         return redirect()
             ->route('transaction-rules.index')
-            ->with('success', '取引ルールを削除しました。');
+            ->with('success', '入力テンプレートを削除しました。');
+    }
+
+    private function validateTransactionRule(
+        Request $request,
+        ?TransactionRule $transactionRule = null
+    ): array {
+        $uniqueKeyword = Rule::unique(
+            'transaction_rules',
+            'keyword'
+        )->where(
+            function ($query) use ($request) {
+                $query
+                    ->where(
+                        'user_id',
+                        $request->user()->id
+                    )
+                    ->where(
+                        'account_id',
+                        $request->input('account_id')
+                    );
+
+                if ($request->filled('category_id')) {
+                    $query->where(
+                        'category_id',
+                        $request->input('category_id')
+                    );
+                } else {
+                    $query->whereNull('category_id');
+                }
+            }
+        );
+
+        if ($transactionRule !== null) {
+            $uniqueKeyword->ignore($transactionRule->id);
+        }
+
+        return $request->validate([
+            'account_id' => [
+                'required',
+                Rule::exists('accounts', 'id')
+                    ->where(
+                        'user_id',
+                        $request->user()->id
+                    ),
+            ],
+            'keyword' => [
+                'required',
+                'string',
+                'max:255',
+                $uniqueKeyword,
+            ],
+            'display_name' => [
+                'nullable',
+                'string',
+                'max:255',
+            ],
+            'category_id' => [
+                'nullable',
+                Rule::exists('categories', 'id')
+                    ->where(
+                        'user_id',
+                        $request->user()->id
+                    ),
+            ],
+        ]);
     }
 
     private function ensureOwnedByUser(

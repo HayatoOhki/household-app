@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Enums\AccountType;
+
 use App\Models\Account;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -28,11 +30,13 @@ class AccountManagementTest extends TestCase
         Account::create([
             'user_id' => $user->id,
             'name' => '現金',
+            'type' => AccountType::CASH
         ]);
 
         Account::create([
             'user_id' => $otherUser->id,
             'name' => '他ユーザー口座',
+            'type' => AccountType::BANK
         ]);
 
         $response = $this
@@ -52,6 +56,7 @@ class AccountManagementTest extends TestCase
             ->actingAs($user)
             ->post(route('accounts.store'), [
                 'name' => '三井住友銀行',
+                'type' => AccountType::BANK->value,
             ]);
 
         $response->assertRedirect(route('accounts.index'));
@@ -70,6 +75,7 @@ class AccountManagementTest extends TestCase
             ->actingAs($user)
             ->post(route('accounts.store'), [
                 'name' => '',
+                'type' => AccountType::BANK->value,
             ]);
 
         $response->assertSessionHasErrors('name');
@@ -82,12 +88,14 @@ class AccountManagementTest extends TestCase
         Account::create([
             'user_id' => $user->id,
             'name' => '現金',
+            'type' => AccountType::CASH
         ]);
 
         $response = $this
             ->actingAs($user)
             ->post(route('accounts.store'), [
                 'name' => '現金',
+                'type' => AccountType::BANK->value,
             ]);
 
         $response->assertSessionHasErrors('name');
@@ -108,12 +116,14 @@ class AccountManagementTest extends TestCase
         Account::create([
             'user_id' => $otherUser->id,
             'name' => '現金',
+            'type' => AccountType::CASH
         ]);
 
         $response = $this
             ->actingAs($user)
             ->post(route('accounts.store'), [
                 'name' => '現金',
+                'type' => AccountType::BANK->value,
             ]);
 
         $response->assertRedirect(route('accounts.index'));
@@ -131,12 +141,14 @@ class AccountManagementTest extends TestCase
         $account = Account::create([
             'user_id' => $user->id,
             'name' => '現金',
+            'type' => AccountType::CASH
         ]);
 
         $response = $this
             ->actingAs($user)
             ->put(route('accounts.update', $account), [
                 'name' => '財布',
+                'type' => AccountType::BANK->value,
             ]);
 
         $response->assertRedirect(route('accounts.index'));
@@ -156,6 +168,7 @@ class AccountManagementTest extends TestCase
         $account = Account::create([
             'user_id' => $otherUser->id,
             'name' => '他ユーザー口座',
+            'type' => AccountType::BANK
         ]);
 
         $response = $this
@@ -173,12 +186,14 @@ class AccountManagementTest extends TestCase
         $account = Account::create([
             'user_id' => $otherUser->id,
             'name' => '他ユーザー口座',
+            'type' => AccountType::BANK
         ]);
 
         $response = $this
             ->actingAs($user)
             ->put(route('accounts.update', $account), [
                 'name' => '変更後',
+                'type' => AccountType::BANK->value,
             ]);
 
         $response->assertNotFound();
@@ -196,6 +211,7 @@ class AccountManagementTest extends TestCase
         $account = Account::create([
             'user_id' => $user->id,
             'name' => '現金',
+            'type' => AccountType::CASH
         ]);
 
         $response = $this
@@ -217,6 +233,7 @@ class AccountManagementTest extends TestCase
         $account = Account::create([
             'user_id' => $otherUser->id,
             'name' => '他ユーザー口座',
+            'type' => AccountType::BANK
         ]);
 
         $response = $this

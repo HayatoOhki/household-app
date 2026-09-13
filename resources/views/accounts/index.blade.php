@@ -31,11 +31,23 @@
                 登録されている口座はありません。
             </p>
         @else
-            <table border="1" cellpadding="8">
+            <table
+                border="1"
+                cellpadding="8"
+            >
                 <thead>
                     <tr>
-                        <th>口座名</th>
-                        <th>操作</th>
+                        <th>
+                            口座名
+                        </th>
+
+                        <th>
+                            種別
+                        </th>
+
+                        <th>
+                            操作
+                        </th>
                     </tr>
                 </thead>
 
@@ -47,13 +59,25 @@
                             </td>
 
                             <td>
-                                <a href="{{ route('accounts.edit', $account) }}">
+                                {{ $account->type->label() }}
+                            </td>
+
+                            <td>
+                                <a
+                                    href="{{ route(
+                                        'accounts.edit',
+                                        $account
+                                    ) }}"
+                                >
                                     編集
                                 </a>
 
                                 <form
                                     method="POST"
-                                    action="{{ route('accounts.destroy', $account) }}"
+                                    action="{{ route(
+                                        'accounts.destroy',
+                                        $account
+                                    ) }}"
                                     style="display: inline;"
                                 >
                                     @csrf

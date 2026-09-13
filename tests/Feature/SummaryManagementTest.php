@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Enums\AccountType;
+
 use App\Models\Account;
 use App\Models\Category;
 use App\Models\Transaction;
@@ -141,6 +143,7 @@ class SummaryManagementTest extends TestCase
         $otherAccount = Account::create([
             'user_id' => $otherUser->id,
             'name' => '他人の銀行',
+            'type' => AccountType::BANK
         ]);
 
         $otherCategory = Category::create([
@@ -191,11 +194,13 @@ class SummaryManagementTest extends TestCase
         $fromAccount = Account::create([
             'user_id' => $user->id,
             'name' => '銀行',
+            'type' => AccountType::BANK
         ]);
 
         $toAccount = Account::create([
             'user_id' => $user->id,
             'name' => '現金',
+            'type' => AccountType::CASH
         ]);
 
         $fromTransaction = $this->createTransaction(
@@ -281,6 +286,7 @@ class SummaryManagementTest extends TestCase
         $account = Account::create([
             'user_id' => $user->id,
             'name' => '現金',
+            'type' => AccountType::CASH
         ]);
 
         $food = Category::create([
@@ -398,11 +404,13 @@ class SummaryManagementTest extends TestCase
         $bankAccount = Account::create([
             'user_id' => $user->id,
             'name' => '銀行',
+            'type' => AccountType::BANK
         ]);
 
         $cashAccount = Account::create([
             'user_id' => $user->id,
             'name' => '現金',
+            'type' => AccountType::CASH
         ]);
 
         $this->createTransaction(
@@ -500,6 +508,7 @@ class SummaryManagementTest extends TestCase
         $account = Account::create([
             'user_id' => $user->id,
             'name' => '三井住友銀行',
+            'type' => AccountType::BANK
         ]);
 
         $category = Category::create([

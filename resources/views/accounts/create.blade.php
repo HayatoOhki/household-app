@@ -24,7 +24,10 @@
             </ul>
         @endif
 
-        <form method="POST" action="{{ route('accounts.store') }}">
+        <form
+            method="POST"
+            action="{{ route('accounts.store') }}"
+        >
             @csrf
 
             <div>
@@ -40,6 +43,32 @@
                     maxlength="100"
                     required
                 >
+            </div>
+
+            <div>
+                <label for="type">
+                    口座種別
+                </label>
+
+                <select
+                    id="type"
+                    name="type"
+                    required
+                >
+                    @foreach ($accountTypes as $accountType)
+                        <option
+                            value="{{ $accountType->value }}"
+                            @selected(
+                                old(
+                                    'type',
+                                    'bank'
+                                ) === $accountType->value
+                            )
+                        >
+                            {{ $accountType->label() }}
+                        </option>
+                    @endforeach
+                </select>
             </div>
 
             <button type="submit">

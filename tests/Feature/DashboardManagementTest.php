@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Enums\AccountType;
+
 use App\Enums\TransactionType;
 use App\Models\Account;
 use App\Models\Category;
@@ -56,6 +58,7 @@ class DashboardManagementTest extends TestCase
         $account = Account::create([
             'user_id' => $user->id,
             'name' => '銀行',
+            'type' => AccountType::BANK
         ]);
 
         $incomeCategory = Category::create([
@@ -124,6 +127,7 @@ class DashboardManagementTest extends TestCase
         $account = Account::create([
             'user_id' => $user->id,
             'name' => '三井住友銀行',
+            'type' => AccountType::BANK
         ]);
 
         $incomeCategory = Category::create([
@@ -202,11 +206,13 @@ class DashboardManagementTest extends TestCase
         $fromAccount = Account::create([
             'user_id' => $user->id,
             'name' => '銀行',
+            'type' => AccountType::BANK
         ]);
 
         $toAccount = Account::create([
             'user_id' => $user->id,
             'name' => '現金',
+            'type' => AccountType::CASH
         ]);
 
         Transaction::create([
@@ -296,11 +302,13 @@ class DashboardManagementTest extends TestCase
         $account = Account::create([
             'user_id' => $user->id,
             'name' => '自分の銀行',
+            'type' => AccountType::BANK
         ]);
 
         $otherAccount = Account::create([
             'user_id' => $otherUser->id,
             'name' => '他人の銀行',
+            'type' => AccountType::BANK
         ]);
 
         $category = Category::create([

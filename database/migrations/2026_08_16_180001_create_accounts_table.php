@@ -12,11 +12,26 @@ return new class extends Migration
     {
         Schema::create('accounts', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+
+            $table->foreignId('user_id')
+                ->constrained()
+                ->cascadeOnDelete();
+
             $table->string('name', 100);
+
+            $table->string('type', 30);
+
             $table->timestamps();
 
-            $table->unique(['user_id', 'name']);
+            $table->unique([
+                'user_id',
+                'name',
+            ]);
+
+            $table->index([
+                'user_id',
+                'type',
+            ]);
         });
     }
 
