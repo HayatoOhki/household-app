@@ -20,10 +20,25 @@ class TransactionRuleController extends Controller
                 'account',
                 'category',
             ])
-            ->orderBy('account_id')
-            ->orderBy('keyword')
-            ->orderBy('category_id')
-            ->get();
+            ->get()
+            ->sortBy([
+                fn ($a, $b) =>
+                    ($a->account?->sort_order ?? 10000)
+                    <=>
+                    ($b->account?->sort_order ?? 10000),
+
+                fn ($a, $b) =>
+                    ($a->account?->id ?? PHP_INT_MAX)
+                    <=>
+                    ($b->account?->id ?? PHP_INT_MAX),
+
+                fn ($a, $b) =>
+                    strcmp(
+                        $a->keyword,
+                        $b->keyword
+                    ),
+            ])
+            ->values();
 
         return view(
             'transaction-rules.index',
@@ -35,12 +50,14 @@ class TransactionRuleController extends Controller
     {
         $accounts = $request->user()
             ->accounts()
-            ->orderBy('name')
+            ->orderBy('sort_order')
+            ->orderBy('id')
             ->get();
 
         $categories = $request->user()
             ->categories()
-            ->orderBy('name')
+            ->orderBy('sort_order')
+            ->orderBy('id')
             ->get();
 
         return view(
@@ -81,12 +98,14 @@ class TransactionRuleController extends Controller
 
         $accounts = $request->user()
             ->accounts()
-            ->orderBy('name')
+            ->orderBy('sort_order')
+            ->orderBy('id')
             ->get();
 
         $categories = $request->user()
             ->categories()
-            ->orderBy('name')
+            ->orderBy('sort_order')
+            ->orderBy('id')
             ->get();
 
         return view(

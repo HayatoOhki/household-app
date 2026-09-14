@@ -15,19 +15,35 @@ Route::middleware('auth')->group(function () {
         [DashboardController::class, 'index']
     )->name('dashboard');
 
-    Route::resource(
-        'accounts',
-        AccountController::class
-    )->except([
-        'show',
-    ]);
+    Route::get(
+        '/accounts',
+        [AccountController::class, 'index']
+    )->name('accounts.index');
 
-    Route::resource(
-        'categories',
-        CategoryController::class
-    )->except([
-        'show',
-    ]);
+    Route::put(
+        '/accounts/bulk-update',
+        [AccountController::class, 'bulkUpdate']
+    )->name('accounts.bulk-update');
+
+    Route::delete(
+        '/accounts/{account}',
+        [AccountController::class, 'destroy']
+    )->name('accounts.destroy');
+
+    Route::get(
+        '/categories',
+        [CategoryController::class, 'index']
+    )->name('categories.index');
+
+    Route::put(
+        '/categories/bulk-update',
+        [CategoryController::class, 'bulkUpdate']
+    )->name('categories.bulk-update');
+
+    Route::delete(
+        '/categories/{category}',
+        [CategoryController::class, 'destroy']
+    )->name('categories.destroy');
 
     Route::patch(
         '/transactions/{transaction}/status',
@@ -50,7 +66,6 @@ Route::middleware('auth')->group(function () {
         'update',
         'destroy',
     ]);
-
 
     Route::resource(
         'transaction-rules',

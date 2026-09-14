@@ -18,12 +18,14 @@ class Account extends Model
         'user_id',
         'name',
         'type',
+        'sort_order',
     ];
 
     protected function casts(): array
     {
         return [
             'type' => AccountType::class,
+            'sort_order' => 'integer',
         ];
     }
 

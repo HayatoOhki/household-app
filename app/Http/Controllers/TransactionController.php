@@ -152,12 +152,14 @@ class TransactionController extends Controller
 
         $accounts = $request->user()
             ->accounts()
-            ->orderBy('name')
+            ->orderBy('sort_order')
+            ->orderBy('id')
             ->get();
 
         $categories = $request->user()
             ->categories()
-            ->orderBy('name')
+            ->orderBy('sort_order')
+            ->orderBy('id')
             ->get();
 
         return view(
@@ -175,12 +177,14 @@ class TransactionController extends Controller
     {
         $accounts = $request->user()
             ->accounts()
-            ->orderBy('name')
+            ->orderBy('sort_order')
+            ->orderBy('id')
             ->get();
 
         $categories = $request->user()
             ->categories()
-            ->orderBy('name')
+            ->orderBy('sort_order')
+            ->orderBy('id')
             ->get();
 
         $transactionRules = $request->user()
@@ -215,12 +219,14 @@ class TransactionController extends Controller
 
         $accounts = $request->user()
             ->accounts()
-            ->orderBy('name')
+            ->orderBy('sort_order')
+            ->orderBy('id')
             ->get();
 
         $categories = $request->user()
             ->categories()
-            ->orderBy('name')
+            ->orderBy('sort_order')
+            ->orderBy('id')
             ->get();
 
         $transactionRules = $request->user()
@@ -322,12 +328,14 @@ class TransactionController extends Controller
 
         $accounts = $request->user()
             ->accounts()
-            ->orderBy('name')
+            ->orderBy('sort_order')
+            ->orderBy('id')
             ->get();
 
         $categories = $request->user()
             ->categories()
-            ->orderBy('name')
+            ->orderBy('sort_order')
+            ->orderBy('id')
             ->get();
 
         $transactionRules = $request->user()

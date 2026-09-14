@@ -21,6 +21,9 @@ return new class extends Migration
 
             $table->string('type', 30);
 
+            $table->unsignedInteger('sort_order')
+                ->default(10000);
+
             $table->timestamps();
 
             $table->unique([
@@ -31,6 +34,11 @@ return new class extends Migration
             $table->index([
                 'user_id',
                 'type',
+            ]);
+
+            $table->index([
+                'user_id',
+                'sort_order',
             ]);
         });
     }

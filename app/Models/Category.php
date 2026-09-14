@@ -16,7 +16,15 @@ class Category extends Model
     protected $fillable = [
         'user_id',
         'name',
+        'sort_order',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'sort_order' => 'integer',
+        ];
+    }
 
     /**
      * このカテゴリーを所有するユーザー。

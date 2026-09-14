@@ -12,11 +12,27 @@ return new class extends Migration
     {
         Schema::create('categories', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+
+            $table->foreignId('user_id')
+                ->constrained()
+                ->cascadeOnDelete();
+
             $table->string('name', 100);
+
+            $table->unsignedInteger('sort_order')
+                ->default(10000);
+
             $table->timestamps();
 
-            $table->unique(['user_id', 'name']);
+            $table->unique([
+                'user_id',
+                'name',
+            ]);
+
+            $table->index([
+                'user_id',
+                'sort_order',
+            ]);
         });
     }
 

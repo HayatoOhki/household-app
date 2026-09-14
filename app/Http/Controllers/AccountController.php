@@ -8,7 +8,10 @@ use App\Enums\AccountType;
 use App\Models\Account;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class AccountController extends Controller
@@ -17,87 +20,142 @@ class AccountController extends Controller
     {
         $accounts = $request->user()
             ->accounts()
-            ->orderBy('name')
+            ->orderBy('sort_order')
+            ->orderBy('id')
             ->get();
 
         return view(
             'accounts.index',
-            compact('accounts')
-        );
-    }
-
-    public function create(): View
-    {
-        return view(
-            'accounts.create',
             [
-                'accountTypes' =>
-                    AccountType::cases(),
+                'accounts' => $accounts,
+                'accountTypes' => AccountType::cases(),
             ]
         );
     }
 
-    public function store(
+    public function bulkUpdate(
         Request $request
     ): RedirectResponse {
-        $validated =
-            $this->validateAccount(
-                $request
-            );
+        $validated = $request->validate([
+            'accounts' => [
+                'nullable',
+                'array',
+            ],
+            'accounts.*.id' => [
+                'nullable',
+                'integer',
+                'distinct',
+            ],
+            'accounts.*.name' => [
+                'required',
+                'string',
+                'max:100',
+                'distinct',
+            ],
+            'accounts.*.type' => [
+                'required',
+                Rule::enum(AccountType::class),
+            ],
+        ]);
 
-        $request->user()
+        $rows = collect(
+            $validated['accounts'] ?? []
+        );
+
+        $accountIds = $rows
+            ->pluck('id')
+            ->filter()
+            ->map(fn ($id) => (int) $id)
+            ->values();
+
+        $accounts = $request->user()
             ->accounts()
-            ->create($validated);
+            ->whereIn('id', $accountIds)
+            ->get()
+            ->keyBy('id');
 
-        return redirect()
-            ->route('accounts.index')
-            ->with(
-                'success',
-                '口座を登録しました。'
-            );
-    }
+        if (
+            $accounts->count()
+            !== $accountIds->count()
+        ) {
+            abort(404);
+        }
 
-    public function edit(
-        Request $request,
-        Account $account
-    ): View {
-        $this->ensureOwnedByUser(
-            $request,
-            $account
-        );
+        $names = $rows
+            ->pluck('name')
+            ->values();
 
-        return view(
-            'accounts.edit',
-            [
-                'account' => $account,
-                'accountTypes' =>
-                    AccountType::cases(),
-            ]
-        );
-    }
+        $hasConflict = $request->user()
+            ->accounts()
+            ->when(
+                $accountIds->isNotEmpty(),
+                fn ($query) =>
+                    $query->whereNotIn(
+                        'id',
+                        $accountIds
+                    )
+            )
+            ->whereIn('name', $names)
+            ->exists();
 
-    public function update(
-        Request $request,
-        Account $account
-    ): RedirectResponse {
-        $this->ensureOwnedByUser(
-            $request,
-            $account
-        );
+        if ($hasConflict) {
+            throw ValidationException::withMessages([
+                'accounts' =>
+                    '同じ名前の口座が既に登録されています。',
+            ]);
+        }
 
-        $validated =
-            $this->validateAccount(
+        DB::transaction(
+            function () use (
                 $request,
-                $account
-            );
+                $rows,
+                $accounts
+            ): void {
+                foreach ($accounts as $account) {
+                    $account->update([
+                        'name' =>
+                            '__tmp_account_'
+                            . $account->id
+                            . '_'
+                            . Str::uuid(),
+                    ]);
+                }
 
-        $account->update($validated);
+                foreach (
+                    $rows->values() as $index => $row
+                ) {
+                    $sortOrder = ($index + 1) * 10;
+
+                    if (! empty($row['id'])) {
+                        $account = $accounts->get(
+                            (int) $row['id']
+                        );
+
+                        $account->update([
+                            'name' => $row['name'],
+                            'type' => $row['type'],
+                            'sort_order' => $sortOrder,
+                        ]);
+
+                        continue;
+                    }
+
+                    $request->user()
+                        ->accounts()
+                        ->create([
+                            'name' => $row['name'],
+                            'type' => $row['type'],
+                            'sort_order' => $sortOrder,
+                        ]);
+                }
+            }
+        );
 
         return redirect()
             ->route('accounts.index')
             ->with(
                 'success',
-                '口座を更新しました。'
+                '口座を保存しました。'
             );
     }
 
@@ -118,42 +176,6 @@ class AccountController extends Controller
                 'success',
                 '口座を削除しました。'
             );
-    }
-
-    private function validateAccount(
-        Request $request,
-        ?Account $account = null
-    ): array {
-        $nameRule =
-            Rule::unique(
-                'accounts',
-                'name'
-            )
-                ->where(
-                    'user_id',
-                    $request->user()->id
-                );
-
-        if ($account !== null) {
-            $nameRule->ignore(
-                $account->id
-            );
-        }
-
-        return $request->validate([
-            'name' => [
-                'required',
-                'string',
-                'max:100',
-                $nameRule,
-            ],
-            'type' => [
-                'required',
-                Rule::enum(
-                    AccountType::class
-                ),
-            ],
-        ]);
     }
 
     private function ensureOwnedByUser(
