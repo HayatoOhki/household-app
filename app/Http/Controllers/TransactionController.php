@@ -142,6 +142,10 @@ class TransactionController extends Controller
         }
 
         $transactions = $query
+            ->orderByRaw(
+                'CASE WHEN type = ? THEN 1 ELSE 0 END',
+                [TransactionType::OPENING_BALANCE->value]
+            )
             ->orderByDesc('transaction_date')
             ->orderByDesc('id')
             ->get();

@@ -4,233 +4,279 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
-use App\Models\TransactionRule;
+use App\Enums\AccountType;
+use App\Models\Account;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class TransactionRuleController extends Controller
 {
     public function index(Request $request): View
     {
-        $transactionRules = $request->user()
+        $accounts = $request->user()
+            ->accounts()
+            ->where(
+                'type',
+                '!=',
+                AccountType::CASH->value
+            )
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get();
+
+        $categories = $request->user()
+            ->categories()
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get();
+
+        $transactionRulesByAccount = $request->user()
             ->transactionRules()
-            ->with([
-                'account',
-                'category',
-            ])
+            ->whereIn(
+                'account_id',
+                $accounts->pluck('id')
+            )
+            ->orderBy('keyword')
+            ->orderBy('id')
             ->get()
-            ->sortBy([
-                fn ($a, $b) =>
-                    ($a->account?->sort_order ?? 10000)
-                    <=>
-                    ($b->account?->sort_order ?? 10000),
-
-                fn ($a, $b) =>
-                    ($a->account?->id ?? PHP_INT_MAX)
-                    <=>
-                    ($b->account?->id ?? PHP_INT_MAX),
-
-                fn ($a, $b) =>
-                    strcmp(
-                        $a->keyword,
-                        $b->keyword
-                    ),
-            ])
-            ->values();
+            ->groupBy('account_id');
 
         return view(
             'transaction-rules.index',
-            compact('transactionRules')
-        );
-    }
-
-    public function create(Request $request): View
-    {
-        $accounts = $request->user()
-            ->accounts()
-            ->orderBy('sort_order')
-            ->orderBy('id')
-            ->get();
-
-        $categories = $request->user()
-            ->categories()
-            ->orderBy('sort_order')
-            ->orderBy('id')
-            ->get();
-
-        return view(
-            'transaction-rules.create',
             compact(
                 'accounts',
-                'categories'
+                'categories',
+                'transactionRulesByAccount'
             )
         );
     }
 
-    public function store(Request $request): RedirectResponse
-    {
-        $validated = $this->validateTransactionRule($request);
-
-        $request->user()
-            ->transactionRules()
-            ->create([
-                'account_id' => $validated['account_id'],
-                'keyword' => $validated['keyword'],
-                'display_name' => $validated['display_name'] ?? null,
-                'category_id' => $validated['category_id'] ?? null,
-            ]);
-
-        return redirect()
-            ->route('transaction-rules.index')
-            ->with('success', '入力テンプレートを登録しました。');
-    }
-
-    public function edit(
+    public function bulkUpdate(
         Request $request,
-        TransactionRule $transactionRule
-    ): View {
-        $this->ensureOwnedByUser(
-            $request,
-            $transactionRule
-        );
-
-        $accounts = $request->user()
-            ->accounts()
-            ->orderBy('sort_order')
-            ->orderBy('id')
-            ->get();
-
-        $categories = $request->user()
-            ->categories()
-            ->orderBy('sort_order')
-            ->orderBy('id')
-            ->get();
-
-        return view(
-            'transaction-rules.edit',
-            compact(
-                'transactionRule',
-                'accounts',
-                'categories'
-            )
-        );
-    }
-
-    public function update(
-        Request $request,
-        TransactionRule $transactionRule
+        Account $account
     ): RedirectResponse {
-        $this->ensureOwnedByUser(
+        $this->ensureAccountOwnedByUser(
             $request,
-            $transactionRule
+            $account
         );
 
-        $validated = $this->validateTransactionRule(
-            $request,
-            $transactionRule
+        abort_if(
+            $account->type === AccountType::CASH,
+            404
         );
 
-        $transactionRule->update([
-            'account_id' => $validated['account_id'],
-            'keyword' => $validated['keyword'],
-            'display_name' => $validated['display_name'] ?? null,
-            'category_id' => $validated['category_id'] ?? null,
+        $validated = $request->validate([
+            'transaction_rules' => [
+                'nullable',
+                'array',
+            ],
+            'transaction_rules.*.id' => [
+                'nullable',
+                'integer',
+                'distinct',
+            ],
+            'transaction_rules.*.keyword' => [
+                'required',
+                'string',
+                'max:255',
+            ],
+            'transaction_rules.*.display_name' => [
+                'nullable',
+                'string',
+                'max:255',
+            ],
+            'transaction_rules.*.category_id' => [
+                'nullable',
+                'integer',
+                Rule::exists(
+                    'categories',
+                    'id'
+                )->where(
+                    'user_id',
+                    $request->user()->id
+                ),
+            ],
         ]);
 
-        return redirect()
-            ->route('transaction-rules.index')
-            ->with('success', '入力テンプレートを更新しました。');
-    }
+        $rows = collect(
+            $validated['transaction_rules'] ?? []
+        )->values();
 
-    public function destroy(
-        Request $request,
-        TransactionRule $transactionRule
-    ): RedirectResponse {
-        $this->ensureOwnedByUser(
-            $request,
-            $transactionRule
-        );
+        $this->validateDuplicateRows($rows);
 
-        $transactionRule->delete();
+        $ruleIds = $rows
+            ->pluck('id')
+            ->filter()
+            ->map(
+                fn ($id) => (int) $id
+            )
+            ->values();
 
-        return redirect()
-            ->route('transaction-rules.index')
-            ->with('success', '入力テンプレートを削除しました。');
-    }
+        $existingRules = $request->user()
+            ->transactionRules()
+            ->where(
+                'account_id',
+                $account->id
+            )
+            ->get()
+            ->keyBy('id');
 
-    private function validateTransactionRule(
-        Request $request,
-        ?TransactionRule $transactionRule = null
-    ): array {
-        $uniqueKeyword = Rule::unique(
-            'transaction_rules',
-            'keyword'
-        )->where(
-            function ($query) use ($request) {
-                $query
-                    ->where(
-                        'user_id',
-                        $request->user()->id
+        $submittedRules = $existingRules
+            ->only(
+                $ruleIds->all()
+            );
+
+        if (
+            $submittedRules->count()
+            !== $ruleIds->count()
+        ) {
+            abort(404);
+        }
+
+        $savedRows = DB::transaction(
+            function () use (
+                $request,
+                $account,
+                $rows,
+                $existingRules,
+                $ruleIds
+            ): array {
+                $existingRules
+                    ->reject(
+                        fn ($rule) =>
+                            $ruleIds->contains(
+                                $rule->id
+                            )
                     )
-                    ->where(
-                        'account_id',
-                        $request->input('account_id')
+                    ->each(
+                        fn ($rule) =>
+                            $rule->delete()
                     );
 
-                if ($request->filled('category_id')) {
-                    $query->where(
-                        'category_id',
-                        $request->input('category_id')
+                $existingRules
+                    ->filter(
+                        fn ($rule) =>
+                            $ruleIds->contains(
+                                $rule->id
+                            )
+                    )
+                    ->each(
+                        function ($rule): void {
+                            $rule->update([
+                                'keyword' =>
+                                    '__tmp_rule_'
+                                    . $rule->id
+                                    . '_'
+                                    . Str::uuid(),
+                            ]);
+                        }
                     );
-                } else {
-                    $query->whereNull('category_id');
+
+                $savedRows = [];
+
+                foreach ($rows as $row) {
+                    $data = [
+                        'keyword' =>
+                            $row['keyword'],
+                        'display_name' =>
+                            $row['display_name']
+                            ?? null,
+                        'category_id' =>
+                            $row['category_id']
+                            ?? null,
+                    ];
+
+                    if (! empty($row['id'])) {
+                        $rule = $existingRules->get(
+                            (int) $row['id']
+                        );
+
+                        $rule->update($data);
+                    } else {
+                        $rule = $request->user()
+                            ->transactionRules()
+                            ->create([
+                                'account_id' =>
+                                    $account->id,
+                                ...$data,
+                            ]);
+                    }
+
+                    $savedRows[] = [
+                        'id' => $rule->id,
+                        'keyword' => $rule->keyword,
+                        'display_name' =>
+                            $rule->display_name,
+                        'category_id' =>
+                            $rule->category_id,
+                    ];
                 }
+
+                return $savedRows;
             }
         );
 
-        if ($transactionRule !== null) {
-            $uniqueKeyword->ignore($transactionRule->id);
-        }
-
-        return $request->validate([
-            'account_id' => [
-                'required',
-                Rule::exists('accounts', 'id')
-                    ->where(
-                        'user_id',
-                        $request->user()->id
-                    ),
-            ],
-            'keyword' => [
-                'required',
-                'string',
-                'max:255',
-                $uniqueKeyword,
-            ],
-            'display_name' => [
-                'nullable',
-                'string',
-                'max:255',
-            ],
-            'category_id' => [
-                'nullable',
-                Rule::exists('categories', 'id')
-                    ->where(
-                        'user_id',
-                        $request->user()->id
-                    ),
-            ],
-        ]);
+        return redirect()
+            ->route(
+                'transaction-rules.index'
+            )
+            ->with(
+                'success',
+                $account->name
+                . 'の入力テンプレートを保存しました。'
+            )
+            ->with(
+                'saved_template_account_id',
+                $account->id
+            )
+            ->with(
+                'saved_template_rows',
+                $savedRows
+            );
     }
 
-    private function ensureOwnedByUser(
+    private function validateDuplicateRows(
+        $rows
+    ): void {
+        $seen = [];
+
+        foreach ($rows as $index => $row) {
+            $keyword = mb_strtolower(
+                $row['keyword']
+            );
+
+            $categoryId =
+                $row['category_id']
+                ?? 'null';
+
+            $key =
+                $keyword
+                . "\0"
+                . $categoryId;
+
+            if (isset($seen[$key])) {
+                throw ValidationException::withMessages([
+                    "transaction_rules.$index.keyword" =>
+                        '同じキーワードとカテゴリの組み合わせが重複しています。',
+                ]);
+            }
+
+            $seen[$key] = true;
+        }
+    }
+
+    private function ensureAccountOwnedByUser(
         Request $request,
-        TransactionRule $transactionRule
+        Account $account
     ): void {
         abort_unless(
-            $transactionRule->user_id === $request->user()->id,
+            $account->user_id
+                === $request->user()->id,
             404
         );
     }

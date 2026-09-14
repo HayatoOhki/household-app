@@ -106,16 +106,6 @@
             color: #1d4ed8;
         }
 
-        .account-row {
-            display: grid;
-            grid-template-columns: minmax(0, 1fr) auto;
-            gap: 8px;
-        }
-
-        .template-button {
-            white-space: nowrap;
-        }
-
         .template-picker {
             display: none;
             margin-top: 8px;
@@ -373,8 +363,7 @@
                             </label>
 
                             <div class="form-field">
-                                <div class="account-row">
-                                    <select
+                                <select
                                         id="account_id"
                                         name="account_id"
                                         class="form-control"
@@ -395,15 +384,6 @@
                                         @endforeach
                                     </select>
 
-                                    <button
-                                        type="button"
-                                        id="template-button"
-                                        class="button button-secondary template-button"
-                                    >
-                                        テンプレートから選択
-                                    </button>
-                                </div>
-
                                 <div
                                     id="template-picker"
                                     class="template-picker"
@@ -412,7 +392,9 @@
                                         id="transaction-template"
                                         class="form-control"
                                     >
-                                        <option value="">選択してください</option>
+                                        <option value="">
+                                            取引補助設定から選択
+                                        </option>
                                     </select>
                                 </div>
                             </div>
@@ -454,7 +436,11 @@
                             id="counterparty-field"
                             class="form-item normal-field"
                         >
-                            <label for="counterparty_name" class="form-label">
+                            <label
+                                id="counterparty-label"
+                                for="counterparty_name"
+                                class="form-label"
+                            >
                                 取引先
                             </label>
 
@@ -692,14 +678,17 @@
             const categorySelect =
                 document.getElementById('category_id');
 
+            const counterpartyLabel =
+                document.getElementById('counterparty-label');
+
             const counterpartyInput =
                 document.getElementById('counterparty_name');
 
+            const displayNameField =
+                document.getElementById('display-name-field');
+
             const displayName =
                 document.getElementById('display-name');
-
-            const templateButton =
-                document.getElementById('template-button');
 
             const templatePicker =
                 document.getElementById('template-picker');
@@ -734,6 +723,10 @@
             }
 
             function accountRules() {
+                if (selectedAccountType() === 'cash') {
+                    return [];
+                }
+
                 const accountId = accountSelect.value;
 
                 if (!accountId) {
@@ -824,7 +817,7 @@
 
             function refreshTemplateOptions() {
                 templateSelect.innerHTML =
-                    '<option value="">選択してください</option>';
+                    '<option value="">取引補助設定から選択</option>';
 
                 accountRules().forEach(function (rule) {
                     const option =
@@ -863,8 +856,15 @@
                 const type = selectedType();
                 const isTransfer = type === 'transfer';
                 const isExpense = type === 'expense';
-                const isCreditCard =
-                    selectedAccountType() === 'credit_card';
+                const accountType = selectedAccountType();
+                const isCash = accountType === 'cash';
+                const isCreditCard = accountType === 'credit_card';
+                const rules = accountRules();
+
+                const showTemplatePicker =
+                    !isTransfer
+                    && !isCash
+                    && rules.length > 0;
 
                 normalFields.forEach(function (field) {
                     field.hidden = isTransfer;
@@ -881,6 +881,25 @@
                         isExpense
                             ? '支払方法 '
                             : '入金先 ';
+
+                    counterpartyLabel.textContent =
+                        isCash
+                            ? '表示名'
+                            : '取引先';
+
+                    displayNameField.hidden =
+                        isCash;
+                }
+
+                refreshTemplateOptions();
+
+                templatePicker.classList.toggle(
+                    'is-visible',
+                    showTemplatePicker
+                );
+
+                if (!showTemplatePicker) {
+                    templateSelect.value = '';
                 }
 
                 const showWithdrawal =
@@ -915,10 +934,10 @@
                 counterpartyInput.disabled =
                     isTransfer;
 
-                refreshTemplateOptions();
-
-                if (!isTransfer) {
+                if (!isTransfer && !isCash) {
                     updateDisplayNameAndCategory();
+                } else {
+                    displayName.textContent = '-';
                 }
             }
 
@@ -943,26 +962,6 @@
             counterpartyInput.addEventListener(
                 'input',
                 updateDisplayNameAndCategory
-            );
-
-            templateButton.addEventListener(
-                'click',
-                function () {
-                    refreshTemplateOptions();
-
-                    templatePicker.classList.add(
-                        'is-visible'
-                    );
-
-                    templateSelect.focus();
-
-                    if (
-                        typeof templateSelect.showPicker
-                        === 'function'
-                    ) {
-                        templateSelect.showPicker();
-                    }
-                }
             );
 
             templateSelect.addEventListener(

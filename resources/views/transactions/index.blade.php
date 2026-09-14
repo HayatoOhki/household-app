@@ -778,9 +778,16 @@
                                 <tr>
                                     {{-- 日付 --}}
                                     <td class="center-cell">
-                                        {{ $transaction
-                                            ->transaction_date
-                                            ->format('Y年m月d日') }}
+                                        @if (
+                                            $transaction->type->value
+                                            === 'opening_balance'
+                                        )
+                                            -
+                                        @else
+                                            {{ $transaction
+                                                ->transaction_date
+                                                ->format('Y年m月d日') }}
+                                        @endif
                                     </td>
 
                                     {{-- 取引種別 --}}

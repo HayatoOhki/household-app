@@ -14,26 +14,30 @@ use Illuminate\View\View;
 
 class OpeningBalanceController extends Controller
 {
-    public function create(Request $request): View
+    private const INTERNAL_TRANSACTION_DATE = '1900-01-01';
+
+    public function index(Request $request): View
     {
         $accounts = $request->user()
             ->accounts()
-            ->orderBy('name')
+            ->orderBy('sort_order')
+            ->orderBy('id')
             ->get();
 
-        $registeredAccountIds = $request->user()
+        $openingBalancesByAccount = $request->user()
             ->transactions()
             ->where(
                 'type',
                 TransactionType::OPENING_BALANCE->value
             )
-            ->pluck('account_id');
+            ->get()
+            ->keyBy('account_id');
 
         return view(
-            'opening-balances.create',
+            'opening-balances.index',
             compact(
                 'accounts',
-                'registeredAccountIds'
+                'openingBalancesByAccount'
             )
         );
     }
@@ -65,7 +69,7 @@ class OpeningBalanceController extends Controller
             ->transactions()
             ->create([
                 'transaction_date' =>
-                    $validated['transaction_date'],
+                    self::INTERNAL_TRANSACTION_DATE,
 
                 'type' =>
                     TransactionType::OPENING_BALANCE->value,
@@ -86,48 +90,11 @@ class OpeningBalanceController extends Controller
             ]);
 
         return redirect()
-            ->route('transactions.index')
+            ->route('opening-balances.index')
             ->with(
                 'success',
                 '初期残高を登録しました。'
             );
-    }
-
-    public function edit(
-        Request $request,
-        Transaction $openingBalance
-    ): View {
-        $this->ensureOwnedOpeningBalance(
-            $request,
-            $openingBalance
-        );
-
-        $accounts = $request->user()
-            ->accounts()
-            ->orderBy('name')
-            ->get();
-
-        $registeredAccountIds = $request->user()
-            ->transactions()
-            ->where(
-                'type',
-                TransactionType::OPENING_BALANCE->value
-            )
-            ->where(
-                'id',
-                '!=',
-                $openingBalance->id
-            )
-            ->pluck('account_id');
-
-        return view(
-            'opening-balances.edit',
-            compact(
-                'openingBalance',
-                'accounts',
-                'registeredAccountIds'
-            )
-        );
     }
 
     public function update(
@@ -167,7 +134,7 @@ class OpeningBalanceController extends Controller
 
         $openingBalance->update([
             'transaction_date' =>
-                $validated['transaction_date'],
+                self::INTERNAL_TRANSACTION_DATE,
 
             'account_id' =>
                 $validated['account_id'],
@@ -177,7 +144,7 @@ class OpeningBalanceController extends Controller
         ]);
 
         return redirect()
-            ->route('transactions.index')
+            ->route('opening-balances.index')
             ->with(
                 'success',
                 '初期残高を更新しました。'
@@ -196,7 +163,7 @@ class OpeningBalanceController extends Controller
         $openingBalance->delete();
 
         return redirect()
-            ->route('transactions.index')
+            ->route('opening-balances.index')
             ->with(
                 'success',
                 '初期残高を削除しました。'
@@ -212,10 +179,6 @@ class OpeningBalanceController extends Controller
         Request $request
     ): array {
         return $request->validate([
-            'transaction_date' => [
-                'required',
-                'date',
-            ],
             'account_id' => [
                 'required',
                 Rule::exists('accounts', 'id')

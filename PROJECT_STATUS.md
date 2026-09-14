@@ -42,16 +42,16 @@ Household App
 │   └─ 領収書管理                ← 未実装
 │
 └─ UI / レポート
-    ├─ 正式UI / Tailwind          ← 一部実装・画面単位で整備中
-    ├─ 年間集計                  ← 後回し
+    ├─ 正式UI / Blade + CSS        ← 主要画面整備済み
+    ├─ 年間集計                  ← 実装済み
     ├─ グラフ                    ← 後回し
     ├─ 前月比較                  ← 後回し
     └─ 詳細レポート              ← 後回し
 ```
 
-現在は、**家計簿として必要な主要入力・編集・削除・最低限の集計・Dashboardまで実装済み**。取引登録・編集は支出 / 収入 / 振替へ統合し、主要画面の正式UI化も進行中。
+現在は、**家計簿として必要な主要入力・編集・削除・Dashboard・年間集計まで実装済み**。取引登録・編集は支出 / 収入 / 振替へ統合し、主要画面の正式UI化も完了している。
 
-次のフェーズは、実データ移行も交えながら画面単位で正式UIを整備し、その過程で不足機能・使いにくさを発見して追加・修正する。
+次のフェーズは、実データ移行・実利用を進めながら不足機能・使いにくさを発見し、必要な機能を画面単位で追加・修正する。
 
 ------------------------------------------------------------------------
 
@@ -106,7 +106,7 @@ app/Models/Transaction.php の現在の内容を出してください。
 
 ## 現在のフェーズ
 
-**主要機能の最低限実装は一区切り。現在は正式UI整備 + 実利用ベースの機能調整フェーズ。**
+**家計簿v1の主要機能・主要画面の正式UI化は一区切り。現在は実データ移行 + 実利用ベースの機能調整フェーズ。**
 
 実装・動作確認済み：
 
@@ -121,11 +121,11 @@ app/Models/Transaction.php の現在の内容を出してください。
 -   TransactionRule CRUD
 -   TransactionRule表示名変換
 -   TransactionRuleカテゴリ入力補助
--   Summary最低限版
--   Dashboard最低限版
+-   年間集計
+-   Dashboard正式UI
 -   SummaryService
 -   ユーザー分離
--   開発用Seeder
+-   DemoDataService / 開発確認用データ
 -   Unit / Feature Test
 
 現在の方針：
@@ -133,9 +133,9 @@ app/Models/Transaction.php の現在の内容を出してください。
 ``` text
 主要機能の最低限実装
         ↓
-正式UI / Tailwindを画面単位で整備        ← 現在
+主要画面の正式UI化                    ← 完了
         ↓
-実データ移行・実利用で不足機能を発見
+実データ移行・実利用で不足機能を発見  ← 次
         ↓
 必要な機能をその画面で追加・修正
         ↓
@@ -482,9 +482,8 @@ Opening Balanceは `TransactionType::OPENING_BALANCE`
 
 ## 完了
 
+-   index管理画面
 -   登録
--   一覧表示
--   編集
 -   更新
 -   削除
 -   ユーザー分離
@@ -495,6 +494,10 @@ Opening Balanceは `TransactionType::OPENING_BALANCE`
 
 -   1口座1件
 -   0円を許可
+-   `transaction_date` はDB内部値として `1900-01-01` を保存
+-   UIでは日付を入力・表示しない
+-   Transaction一覧ではOpening Balanceの日付を `-` 表示
+-   Transaction一覧ではOpening Balanceを通常取引より後ろへ明示的に並べる
 -   `category_id = null`
 -   `counterparty_name = null`
 -   `withdrawal_date = null`
@@ -502,14 +505,14 @@ Opening Balanceは `TransactionType::OPENING_BALANCE`
 -   `expense_registered = false`
 -   `receipt_saved = false`
 
-通常Transaction編集・削除機能からOpening Balanceを操作することは禁止。
-専用Controller / UIから扱う。
+通常Transaction編集・複製・削除機能からOpening Balanceを操作することは禁止。
+専用の `opening-balances.index` 画面から扱う。
 
 ------------------------------------------------------------------------
 
 # 11. TransactionRule
 
-Ruleは口座 + keyword + category単位の入力テンプレートとして扱う。UI上の名称は「入力テンプレート」。
+Ruleは口座 + keyword + category単位の入力補助設定として扱う。UI上の名称は「取引補助設定」。
 
 ## 仕様
 
@@ -520,6 +523,10 @@ Ruleは口座 + keyword + category単位の入力テンプレートとして扱�
 -   `display_name` は一覧表示時のみ利用
 -   categoryは入力補助
 -   ユーザーは自動選択されたcategoryを上書き可能
+-   現金口座では取引補助設定を使用しない
+-   取引登録・編集画面では対象口座にRuleがある場合のみ口座直下に選択欄を表示
+-   選択欄のplaceholderは `取引補助設定から選択`
+-   Rule未選択でも銀行・カードはkeywordによる表示名・カテゴリ補助を行う
 
 ## 重要
 
@@ -540,18 +547,24 @@ Rule display_name    = 家賃
 
 # 12. Summary / Aggregation
 
-最低限版を実装済み。
+正式UIまで実装済み。
 
 ## Summary画面
 
-実装済み：
+現在は年間収支UIとして実装済み。
 
-1.  月間収入
-2.  月間支出
-3.  月間収支
-4.  月間カテゴリ別支出
-5.  現在の口座残高
-6.  月選択
+-   年選択
+-   1月〜12月
+-   平均
+-   合計
+-   カテゴリ別支出
+-   クレジットカード別支出
+-   現金・銀行口座別支出
+-   収入
+-   支出
+-   収支
+
+グラフは使用せず、Excelライクな表形式で正確な数値を確認する方針。
 
 ## 集計仕様
 
@@ -603,7 +616,7 @@ SummaryControllerとDashboardControllerの双方から利用する。
 
 # 13. Dashboard
 
-最低限版を実装済み。
+正式UIまで実装済み。
 
 ## URL / Route
 
@@ -629,16 +642,15 @@ View       dashboard.blade.php
 
 ## 現在の位置づけ
 
-Dashboardは機能確認用の最低限UI。 最終デザインではない。
+DashboardはPC向け正式UI化済み。
 
 ------------------------------------------------------------------------
 
 # 14. Seeder
 
-`database/seeders/HouseholdDataSeeder.php`
+`app/Services/DemoDataService.php`
 
-`DatabaseSeeder` から呼び出し、`migrate:fresh --seed`
-で開発確認用データを再構築できる。
+開発確認用データは `DemoDataService` を利用する構成へ整理済み。
 
 ## 開発用データ
 
@@ -703,7 +715,7 @@ Sample TransactionRule：
 
 ## 最新確認結果
 
-**144 passed / 429 assertions / 1.99s**
+**152 passed / 471 assertions**
 
 全件PASS確認済み。
 
@@ -857,20 +869,27 @@ route('dashboard')
 
 ## Account
 
-`/accounts` CRUD（show除外）
+-   `GET /accounts` → index
+-   `PUT /accounts/bulk-update`
+-   `DELETE /accounts/{account}`
+
+Account管理はindex画面内で追加・編集・並び替えを行う。
 
 ## Category
 
-`/categories` CRUD（show除外）
+-   `GET /categories` → index
+-   `PUT /categories/bulk-update`
+-   `DELETE /categories/{category}`
+
+Category管理はindex画面内で追加・編集・並び替えを行う。
 
 ## Transaction
 
 `/transactions`
 
 -   index
--   create
+-   index
 -   store
--   edit
 -   update
 -   destroy
 
@@ -883,7 +902,11 @@ route('dashboard')
 
 ## TransactionRule
 
-`/transaction-rules` CRUD（show除外）
+-   `GET /transaction-rules` → index
+-   `PUT /transaction-rules/accounts/{account}` → bulk update
+
+UI上の名称は「取引補助設定」。
+現金口座は対象外。
 
 ## Transaction Duplicate
 
@@ -897,11 +920,12 @@ route('dashboard')
 
 ## Opening Balance
 
--   create
--   store
--   edit
--   update
--   destroy
+-   `GET /opening-balances` → index
+-   `POST /opening-balances` → store
+-   `PUT /opening-balances/{openingBalance}` → update
+-   `DELETE /opening-balances/{openingBalance}` → destroy
+
+create / edit route・viewは廃止。
 
 ## Summary
 
@@ -946,14 +970,14 @@ route('summary.index')
 ## Account
 
 -   `resources/views/accounts/index.blade.php`
--   `resources/views/accounts/create.blade.php`
--   `resources/views/accounts/edit.blade.php`
+
+index画面内で追加・編集・削除・ドラッグ並び替えを行う。
 
 ## Category
 
 -   `resources/views/categories/index.blade.php`
--   `resources/views/categories/create.blade.php`
--   `resources/views/categories/edit.blade.php`
+
+index画面内で追加・編集・削除・ドラッグ並び替えを行う。
 
 ## Transaction
 
@@ -968,13 +992,15 @@ route('summary.index')
 ## TransactionRule
 
 -   `resources/views/transaction-rules/index.blade.php`
--   `resources/views/transaction-rules/create.blade.php`
--   `resources/views/transaction-rules/edit.blade.php`
+
+口座ごとの取引補助設定をindex画面内で一括編集する。
+現金口座は対象外。
 
 ## Opening Balance
 
--   `resources/views/opening-balances/create.blade.php`
--   `resources/views/opening-balances/edit.blade.php`
+-   `resources/views/opening-balances/index.blade.php`
+
+口座ごとの初期残高をindex画面内で登録・更新・削除する。
 
 ## Summary
 
@@ -982,7 +1008,7 @@ route('summary.index')
 
 ## UI方針
 
-PC専用の固定左サイドバー + メイン領域を基本レイアウトとして、正式UIを画面単位で整備中。DashboardとTransaction一覧・登録・編集は正式UI化を進めている。
+PC専用の固定左サイドバー + メイン領域を基本レイアウトとして、主要画面の正式UI化は完了している。
 
 正式UIフェーズでは、
 
@@ -1085,7 +1111,7 @@ Transfer
 
 ## TransactionRule
 
-Ruleは口座 + keyword + category単位の入力テンプレートとして扱う。UI上の名称は「入力テンプレート」。
+Ruleは口座 + keyword + category単位の入力補助設定として扱う。UI上の名称は「取引補助設定」。
 
 raw `counterparty_name` を保存し、`display_name` は表示時のみ使用。
 categoryは入力補助。
@@ -1146,7 +1172,7 @@ Transfer / Opening Balanceを月間収支へ混ぜない。
 
 Blade + Tailwind方針。 Reactは採用しない。
 
-現在は機能優先。 正式UIは主要ワークフロー確認後にまとめて実装する。
+主要画面の正式UI化は完了。以後は実利用で見つかった不足機能を追加する。
 
 ## Localization
 
@@ -1211,24 +1237,17 @@ resources/views/
 │   ├── login.blade.php
 │   └── register.blade.php
 ├── accounts/
-│   ├── index.blade.php
-│   ├── create.blade.php
-│   └── edit.blade.php
+│   └── index.blade.php
 ├── categories/
-│   ├── index.blade.php
-│   ├── create.blade.php
-│   └── edit.blade.php
+│   └── index.blade.php
 ├── transactions/
 │   ├── index.blade.php
 │   ├── create.blade.php
 │   └── edit.blade.php
 ├── transaction-rules/
-│   ├── index.blade.php
-│   ├── create.blade.php
-│   └── edit.blade.php
+│   └── index.blade.php
 ├── opening-balances/
-│   ├── create.blade.php
-│   └── edit.blade.php
+│   └── index.blade.php
 ├── summary/
 │   └── index.blade.php
 └── dashboard.blade.php
@@ -1386,10 +1405,11 @@ e-Tax提出用データ生成
 
 ## 現在確認できていること
 
--   branchは過去確認時 `main`
--   以前のまとまった変更についてcommit / push用コマンドは案内済み
--   その後のcommit / push結果は現在の会話では確認できていない
--   したがって最新変更をGitへpush済みとは断定しない
+-   branchは `main`
+-   過去の確認済みpush checkpointは `56f3626 add sortable master data and demo setup`
+-   その後に主要画面正式UI化・取引補助設定・Opening Balance index化等を実装済み
+-   今回の変更はまだcommit / push結果未確認
+-   push完了はユーザーが結果を共有した時点で確定扱いにする
 
 現在の実装状態には少なくとも、
 
@@ -1406,7 +1426,7 @@ e-Tax提出用データ生成
 
 最新テスト：
 
-**144 passed / 429 assertions / 1.99s**
+**152 passed / 471 assertions**
 
 次にGitへ反映する場合は、変更内容確認後にcommit / pushする。
 
@@ -1457,6 +1477,11 @@ e-Tax提出用データ生成
 -   [x] Dashboardクレジットカード引落予定
 -   [x] 固定左サイドバー共通レイアウト
 -   [x] Transaction一覧正式UI
+-   [x] Account管理正式UI（index一画面管理 + 並び替え）
+-   [x] Category管理正式UI（index一画面管理 + 並び替え）
+-   [x] 取引補助設定正式UI（index一画面管理）
+-   [x] Opening Balance正式UI（index一画面管理）
+-   [x] 年間収支正式UI
 -   [x] Transaction登録 / 編集の支出・収入・振替統合UI
 -   [x] `/` Dashboard化
 -   [x] `/home` 廃止
@@ -1466,18 +1491,16 @@ e-Tax提出用データ生成
 -   [x] `migrate:fresh --seed` 動作確認
 -   [x] `test-result.txt` によるテスト結果共有
 -   [x] Unit / Feature Test
--   [x] 144 tests / 429 assertions PASS
+-   [x] 152 tests / 471 assertions PASS
 
 ## 次フェーズ
 
--   [ ] 正式UI / Tailwindを残り画面へ展開
 -   [ ] Excelの実データを移行しながら実利用確認
 -   [ ] 不足機能・使いにくさを画面単位で洗い出す
 -   [ ] 必要な機能をその都度追加・修正
 
 ## 後回し可能な表示拡張
 
--   [ ] 年間集計
 -   [ ] グラフ
 -   [ ] 前月比較
 -   [ ] カテゴリ比率
@@ -1506,14 +1529,12 @@ e-Tax提出用データ生成
 
 # 24. Recommended Next Implementation
 
-現在は残り画面の正式UI化を進めながら、実データ移行・実利用で必要になった機能をその場で追加する。
+現在は主要画面の正式UI化が完了しているため、実データ移行・実利用で必要になった機能をその場で追加する。
 
 推奨：
 
 ``` text
-残りの正式UI対象画面を1つ選ぶ
-        ↓
-その画面をPC向け正式UIへ整える
+Excelの実データを移行
         ↓
 実データ・実利用で不足機能を確認
         ↓
@@ -1541,7 +1562,7 @@ e-Tax提出用データ生成
 
 現在の状態を一言で表すと：
 
-**「主要な家計簿機能が完成し、支出・収入・振替の登録・編集導線もTransactionへ統合済み。正式UIを画面単位で整備しながら実データ・実利用で不足機能を追加する段階。144 tests / 429 assertions が全PASS。」**
+**「主要な家計簿機能と主要画面の正式UI化が完了し、支出・収入・振替の登録・編集導線もTransactionへ統合済み。次は実データ移行・実利用で不足機能を追加する段階。152 tests / 471 assertions が全PASS。」**
 
 特に重要：
 
@@ -1557,10 +1578,10 @@ e-Tax提出用データ生成
 -   月間収支ではTransfer / Opening Balanceを除外
 -   口座残高ではTransfer / Opening Balanceを正しく反映
 -   SummaryServiceで集計ロジック共通化
--   正式UIは画面単位で整備中（PC専用）
+-   主要画面の正式UI化完了（PC専用）
 -   年間集計・グラフ等は後回し可能
 -   会計拡張のためのTransaction必須カラム追加は現時点で不要
--   最新テストは **144 passed / 429 assertions / 1.99s**
+-   最新テストは **152 passed / 471 assertions**
 -   最新Git push状態は未確認
 
 ------------------------------------------------------------------------
@@ -1574,7 +1595,7 @@ e-Tax提出用データ生成
 > 続きから実装始めたい
 
 と言った場合は、原則として
-**正式UIの次対象画面を決め、実利用で必要になった機能を同時に調整する** ところから開始する。
+**実データ移行・実利用を進め、必要になった機能を画面単位で追加・調整する** ところから開始する。
 
 ただし現在の会話で、より新しい具体的な実装対象が決まっている場合はそちらを優先する。
 

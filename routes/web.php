@@ -67,27 +67,28 @@ Route::middleware('auth')->group(function () {
         'destroy',
     ]);
 
-    Route::resource(
-        'transaction-rules',
-        TransactionRuleController::class
-    )->except([
-        'show',
-    ]);
+    Route::get(
+        '/transaction-rules',
+        [TransactionRuleController::class, 'index']
+    )->name('transaction-rules.index');
+
+    Route::put(
+        '/transaction-rules/accounts/{account}',
+        [
+            TransactionRuleController::class,
+            'bulkUpdate',
+        ]
+    )->name('transaction-rules.bulk-update');
 
     Route::get(
-        '/opening-balances/create',
-        [OpeningBalanceController::class, 'create']
-    )->name('opening-balances.create');
+        '/opening-balances',
+        [OpeningBalanceController::class, 'index']
+    )->name('opening-balances.index');
 
     Route::post(
         '/opening-balances',
         [OpeningBalanceController::class, 'store']
     )->name('opening-balances.store');
-
-    Route::get(
-        '/opening-balances/{openingBalance}/edit',
-        [OpeningBalanceController::class, 'edit']
-    )->name('opening-balances.edit');
 
     Route::put(
         '/opening-balances/{openingBalance}',

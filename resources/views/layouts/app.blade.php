@@ -381,11 +381,11 @@
                                         : '' }}
                                 "
                             >
-                                入力テンプレート
+                                取引補助設定
                             </a>
 
                             <a
-                                href="{{ route('opening-balances.create') }}"
+                                href="{{ route('opening-balances.index') }}"
                                 class="
                                     sidebar-link
                                     {{ request()->routeIs('opening-balances.*')
@@ -393,7 +393,7 @@
                                         : '' }}
                                 "
                             >
-                                初期残高登録
+                                初期残高管理
                             </a>
                         </div>
                     </div>
