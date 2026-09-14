@@ -18,37 +18,22 @@ class SummaryController extends Controller
     public function index(Request $request): View
     {
         $validated = $request->validate([
-            'month' => [
+            'year' => [
                 'nullable',
-                'date_format:Y-m',
+                'integer',
+                'min:2000',
+                'max:2100',
             ],
         ]);
 
-        $month = $validated['month']
-            ?? now()->format('Y-m');
-
-        $user = $request->user();
-
-        $monthlySummary =
-            $this->summaryService
-                ->getMonthlySummary(
-                    $user,
-                    $month
-                );
-
-        $accountBalances =
-            $this->summaryService
-                ->getAccountBalances(
-                    $user
-                );
+        $year = (int) ($validated['year'] ?? now()->year);
 
         return view(
             'summary.index',
-            [
-                ...$monthlySummary,
-                'accountBalances' =>
-                    $accountBalances,
-            ]
+            $this->summaryService->getAnnualSummary(
+                $request->user(),
+                $year
+            )
         );
     }
 }
