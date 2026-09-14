@@ -1,6 +1,9 @@
 <?php
 
+declare(strict_types=1);
+
 use App\Http\Controllers\AccountController;
+use App\Http\Controllers\BackupController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\OpeningBalanceController;
@@ -104,4 +107,19 @@ Route::middleware('auth')->group(function () {
         '/summary',
         [SummaryController::class, 'index']
     )->name('summary.index');
+
+    Route::get(
+        '/backup',
+        [BackupController::class, 'index']
+    )->name('backup.index');
+
+    Route::get(
+        '/backup/download',
+        [BackupController::class, 'download']
+    )->name('backup.download');
+
+    Route::post(
+        '/backup/restore',
+        [BackupController::class, 'restore']
+    )->name('backup.restore');
 });

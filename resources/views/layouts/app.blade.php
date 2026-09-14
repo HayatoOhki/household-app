@@ -395,6 +395,18 @@
                             >
                                 初期残高管理
                             </a>
+
+                            <a
+                                href="{{ route('backup.index') }}"
+                                class="
+                                    sidebar-link
+                                    {{ request()->routeIs('backup.*')
+                                        ? 'is-active'
+                                        : '' }}
+                                "
+                            >
+                                バックアップ・復元
+                            </a>
                         </div>
                     </div>
                 </nav>

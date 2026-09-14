@@ -37,7 +37,8 @@ Household App
 │   ├─ 取引ルール                ← CRUD + 表示名変換 + カテゴリ補助完了
 │   ├─ 月間集計                  ← 最低限版完了
 │   ├─ 口座残高                  ← 最低限版完了
-│   ├─ Dashboard                 ← 最低限版完了
+│   ├─ Dashboard                 ← 正式UI完了
+│   ├─ バックアップ・復元        ← 実装済み・テストPASS
 │   ├─ 経費処理                  ← 未実装
 │   └─ 領収書管理                ← 未実装
 │
@@ -49,9 +50,9 @@ Household App
     └─ 詳細レポート              ← 後回し
 ```
 
-現在は、**家計簿として必要な主要入力・編集・削除・Dashboard・年間集計まで実装済み**。取引登録・編集は支出 / 収入 / 振替へ統合し、主要画面の正式UI化も完了している。
+現在は、**家計簿として必要な主要入力・編集・削除・Dashboard・年間集計・ユーザー単位のJSONバックアップ/復元まで実装済み**。取引登録・編集は支出 / 収入 / 振替へ統合し、主要画面の正式UI化も完了している。
 
-次のフェーズは、実データ移行・実利用を進めながら不足機能・使いにくさを発見し、必要な機能を画面単位で追加・修正する。
+次のフェーズは、バックアップ/復元の実操作確認後に実データ移行へ進み、実利用しながら不足機能・使いにくさを発見して画面単位で追加・修正する。
 
 ------------------------------------------------------------------------
 
@@ -106,7 +107,7 @@ app/Models/Transaction.php の現在の内容を出してください。
 
 ## 現在のフェーズ
 
-**家計簿v1の主要機能・主要画面の正式UI化は一区切り。現在は実データ移行 + 実利用ベースの機能調整フェーズ。**
+**家計簿v1の主要機能・主要画面の正式UI化に加え、ユーザー単位のJSONバックアップ/復元まで実装済み。現在はバックアップ/復元の実操作確認後、実データ移行 + 実利用ベースの機能調整へ進むフェーズ。**
 
 実装・動作確認済み：
 
@@ -127,6 +128,10 @@ app/Models/Transaction.php の現在の内容を出してください。
 -   ユーザー分離
 -   DemoDataService / 開発確認用データ
 -   Unit / Feature Test
+-   ユーザー単位JSONバックアップ
+-   JSONからの完全復元（現在ユーザーデータ置換）
+-   復元時のID再採番・参照付け替え
+-   復元失敗時のDBロールバック
 
 現在の方針：
 
@@ -134,6 +139,8 @@ app/Models/Transaction.php の現在の内容を出してください。
 主要機能の最低限実装
         ↓
 主要画面の正式UI化                    ← 完了
+        ↓
+バックアップ・復元                    ← 実装済み / 実操作確認待ち
         ↓
 実データ移行・実利用で不足機能を発見  ← 次
         ↓
@@ -211,7 +218,9 @@ name('home')
 
 ## users
 
-Laravel標準ユーザー情報。 Fortify用情報を含む。
+Laravel標準ユーザー情報。現在のFortify利用範囲は会員登録・ログイン・ログアウト・Remember Me。
+
+未使用のPassword Reset / Profile Update / Password Update / 2FA / Passkey関連コード・migrationは削除済み。
 
 ## categories
 
@@ -715,9 +724,11 @@ Sample TransactionRule：
 
 ## 最新確認結果
 
-**152 passed / 471 assertions**
+**161 passed / 514 assertions**
 
 全件PASS確認済み。
+
+バックアップ・復元機能追加後の最新結果。
 
 テストはHost側PHPではなくDocker内で実行する。
 
@@ -842,9 +853,9 @@ Category CRUD、ユーザー分離、同一ユーザー内の重複名禁止。
 -   Transferによる口座残高反映
 -   他ユーザーデータを混在させない
 
-### ExampleTest
+### RouteAccessTest
 
-Root `/` が認証必須であることを確認。
+Root `/` が認証必須であり、Guestが `/login` へリダイレクトされることを確認。
 
 ## Unit Tests
 
@@ -852,7 +863,7 @@ Root `/` が認証必須であることを確認。
 -   TransactionTypeTest
 -   TransferRelationshipTest
 -   TransactionServiceTest
--   ExampleTest
+-   RouteAccessTest
 
 ------------------------------------------------------------------------
 
@@ -939,11 +950,12 @@ route('summary.index')
 -   `/login`
 -   `/register`
 -   `/logout`
--   その他Fortify提供ルート
+
+現在は会員登録・ログイン・ログアウトを利用。Password Reset / Profile Update / Password Update / 2FA / Passkeyは未使用のため整理済み。
 
 ## API
 
-`routes/api.php`
+`routes/api.php` は未使用のため削除済み。
 
 現時点では家計簿APIは主要開発対象ではない。
 
@@ -1005,6 +1017,12 @@ index画面内で追加・編集・削除・ドラッグ並び替えを行う。
 ## Summary
 
 -   `resources/views/summary/index.blade.php`
+
+## Backup / Restore
+
+-   `resources/views/backup/index.blade.php`
+
+設定メニューに「バックアップ・復元」を追加済み。
 
 ## UI方針
 
@@ -1170,7 +1188,9 @@ Transfer / Opening Balanceを月間収支へ混ぜない。
 
 ## 共通UI
 
-Blade + Tailwind方針。 Reactは採用しない。
+Blade + CSS中心の方針。 Reactは採用しない。
+
+主要UIは `resources/views/layouts/app.blade.php` の共通CSSを基盤としている。
 
 主要画面の正式UI化は完了。以後は実利用で見つかった不足機能を追加する。
 
@@ -1198,6 +1218,7 @@ app/
 │   │   ├── CategoryController.php
 │   │   ├── DashboardController.php
 │   │   ├── OpeningBalanceController.php
+│   │   ├── BackupController.php
 │   │   ├── SummaryController.php
 │   │   ├── TransactionController.php
 │   │   └── TransactionRuleController.php
@@ -1214,6 +1235,7 @@ app/
 │   ├── AppServiceProvider.php
 │   └── FortifyServiceProvider.php
 └── Services/
+    ├── HouseholdBackupService.php
     ├── SummaryService.php
     └── TransactionService.php
 
@@ -1250,6 +1272,8 @@ resources/views/
 │   └── index.blade.php
 ├── summary/
 │   └── index.blade.php
+├── backup/
+│   └── index.blade.php
 └── dashboard.blade.php
 
 tests/
@@ -1263,10 +1287,10 @@ tests/
 │   ├── TransactionManagementTest.php
 │   ├── TransactionRuleManagementTest.php
 │   ├── TransferManagementTest.php
-│   └── ExampleTest.php
+│   ├── BackupManagementTest.php
+│   └── RouteAccessTest.php
 └── Unit/
     ├── AccountTransactionTest.php
-    ├── ExampleTest.php
     ├── TransactionServiceTest.php
     ├── TransactionTypeTest.php
     └── TransferRelationshipTest.php
@@ -1406,31 +1430,35 @@ e-Tax提出用データ生成
 ## 現在確認できていること
 
 -   branchは `main`
--   過去の確認済みpush checkpointは `56f3626 add sortable master data and demo setup`
--   その後に主要画面正式UI化・取引補助設定・Opening Balance index化等を実装済み
--   今回の変更はまだcommit / push結果未確認
+-   `359bcc8 complete household app core UI` をpush済み
+-   `8a12b92 remove unused auth and framework files` をpush済み
+-   `8a12b92` が現在確認済みの最新push checkpoint
+-   バックアップ・復元機能は現在Working Tree上に実装済みだが、まだcommit / push前
 -   push完了はユーザーが結果を共有した時点で確定扱いにする
 
-現在の実装状態には少なくとも、
+`8a12b92` では主に以下を整理済み：
 
--   Transfer CRUD
--   Opening Balance CRUD
--   Summary
--   SummaryService
--   Dashboard
--   `/home` 廃止 / `route('dashboard')` 統一
--   DashboardManagementTest
--   AuthenticationTest Dashboard対応
+-   未使用Fortify Actions削除
+-   Password Reset / Profile Update / Password Update関連整理
+-   Passkey migration削除
+-   未使用 `resources/css/app.css` / `resources/js/app.js` 削除
+-   `welcome.blade.php` 削除
+-   `routes/api.php` 削除
+-   Laravelサンプル `ExampleTest` 整理
+-   Feature側は `RouteAccessTest.php` へ整理
 
-が含まれる。
+バックアップ・復元機能の現在の未commit差分：
+
+-   `app/Http/Controllers/BackupController.php` 新規
+-   `app/Services/HouseholdBackupService.php` 新規
+-   `resources/views/backup/index.blade.php` 新規
+-   `tests/Feature/BackupManagementTest.php` 新規
+-   `resources/views/layouts/app.blade.php` 更新
+-   `routes/web.php` 更新
 
 最新テスト：
 
-**152 passed / 471 assertions**
-
-次にGitへ反映する場合は、変更内容確認後にcommit / pushする。
-
-------------------------------------------------------------------------
+**161 passed / 514 assertions**
 
 # 23. Current Progress
 
@@ -1491,10 +1519,21 @@ e-Tax提出用データ生成
 -   [x] `migrate:fresh --seed` 動作確認
 -   [x] `test-result.txt` によるテスト結果共有
 -   [x] Unit / Feature Test
--   [x] 152 tests / 471 assertions PASS
+-   [x] 161 tests / 514 assertions PASS
+-   [x] 未使用Fortify / Passkey / Laravelサンプル残骸整理
+-   [x] JSONバックアップ出力
+-   [x] JSON完全復元
+-   [x] 復元時のID再採番・参照付け替え
+-   [x] 復元時のユーザー分離
+-   [x] 不正JSON / 不正format時のデータ保護
+-   [x] 復元処理DB Transaction / エラー時ロールバック
+-   [x] バックアップ・復元画面 / サイドバー導線
+-   [x] BackupManagementTest
 
 ## 次フェーズ
 
+-   [ ] バックアップDL → データ変更 → JSON復元の実操作確認
+-   [ ] バックアップ・復元機能をcommit / push
 -   [ ] Excelの実データを移行しながら実利用確認
 -   [ ] 不足機能・使いにくさを画面単位で洗い出す
 -   [ ] 必要な機能をその都度追加・修正
@@ -1529,23 +1568,36 @@ e-Tax提出用データ生成
 
 # 24. Recommended Next Implementation
 
-現在は主要画面の正式UI化が完了しているため、実データ移行・実利用で必要になった機能をその場で追加する。
+現在はバックアップ・復元機能まで実装・自動テスト済み。
+
+次は実操作確認を行い、問題なければcommit / pushしてから実データ移行へ進む。
 
 推奨：
 
 ``` text
+バックアップJSONをダウンロード
+        ↓
+デモデータを1件変更
+        ↓
+JSONから復元
+        ↓
+変更前の状態へ戻ることを確認
+        ↓
+commit / push
+        ↓
 Excelの実データを移行
         ↓
 実データ・実利用で不足機能を確認
         ↓
 必要ならその場で機能追加
-        ↓
-次の画面へ進む
 ```
 
 確認ポイント：
 
--   欲しい情報が入力できるか
+-   口座 / カテゴリ / 取引 / 振替 / 取引補助設定 / 初期残高が復元されるか
+-   ログインユーザー・パスワードが変更されないか
+-   復元後のTransaction / Transfer / TransactionRule参照関係が正しいか
+-   実データ移行後に欲しい情報が入力できるか
 -   編集時に困る項目がないか
 -   一覧で判断に必要な情報が足りるか
 -   登録導線が自然か
@@ -1554,7 +1606,7 @@ Excelの実データを移行
 
 ここで見つかった問題のうち、**データ構造・意味・ワークフローに関わるものを先に修正**する。
 
-表示だけの問題は正式UIフェーズへ回してよい。
+表示だけの問題は実利用しながら必要に応じて調整する。
 
 ------------------------------------------------------------------------
 
@@ -1562,7 +1614,7 @@ Excelの実データを移行
 
 現在の状態を一言で表すと：
 
-**「主要な家計簿機能と主要画面の正式UI化が完了し、支出・収入・振替の登録・編集導線もTransactionへ統合済み。次は実データ移行・実利用で不足機能を追加する段階。152 tests / 471 assertions が全PASS。」**
+**「主要な家計簿機能・主要画面の正式UI化・ユーザー単位JSONバックアップ/完全復元まで実装済み。161 tests / 514 assertions が全PASS。バックアップ復元の実操作確認後、実データ移行へ進む段階。」**
 
 特に重要：
 
@@ -1579,10 +1631,18 @@ Excelの実データを移行
 -   口座残高ではTransfer / Opening Balanceを正しく反映
 -   SummaryServiceで集計ロジック共通化
 -   主要画面の正式UI化完了（PC専用）
--   年間集計・グラフ等は後回し可能
+-   JSONバックアップはログインユーザーの家計簿データのみを対象
+-   復元は現在ユーザーの家計簿データを完全置換
+-   復元時は旧IDをDBへ固定せず、新IDへ参照を再マップ
+-   認証情報・パスワードはバックアップ対象外
+-   不正JSON / 不正formatでは既存データを削除しない
+-   復元処理はDB Transaction内で行い、失敗時はロールバック
+-   未使用Fortify / Passkey / Laravelサンプル残骸は整理済み
+-   年間集計・グラフ等の追加表示は後回し可能
 -   会計拡張のためのTransaction必須カラム追加は現時点で不要
--   最新テストは **152 passed / 471 assertions**
--   最新Git push状態は未確認
+-   最新テストは **161 passed / 514 assertions**
+-   最新確認済みGit pushは **8a12b92 remove unused auth and framework files**
+-   バックアップ・復元機能はまだcommit / push前
 
 ------------------------------------------------------------------------
 
@@ -1595,7 +1655,7 @@ Excelの実データを移行
 > 続きから実装始めたい
 
 と言った場合は、原則として
-**実データ移行・実利用を進め、必要になった機能を画面単位で追加・調整する** ところから開始する。
+**バックアップ・復元の実操作確認が未完了ならそこから確認し、完了済みなら実データ移行・実利用を進め、必要になった機能を画面単位で追加・調整する** ところから開始する。
 
 ただし現在の会話で、より新しい具体的な実装対象が決まっている場合はそちらを優先する。
 
