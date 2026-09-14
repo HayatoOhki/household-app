@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 use Laravel\Fortify\Features;
 
 return [
@@ -30,9 +32,6 @@ return [
 
     'features' => [
         Features::registration(),
-        Features::resetPasswords(),
-        Features::updateProfileInformation(),
-        Features::updatePasswords(),
     ],
 
 ];

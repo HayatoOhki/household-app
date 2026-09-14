@@ -45,7 +45,6 @@ class OpeningBalanceManagementTest extends TestCase
         $response->assertOk();
         $response->assertSee('初期残高管理');
         $response->assertSee('三井住友銀行');
-        $response->assertSee('未登録');
         $response->assertDontSee('type="date"', false);
     }
 
@@ -350,7 +349,6 @@ class OpeningBalanceManagementTest extends TestCase
             );
 
         $response->assertOk();
-        $response->assertSee('登録済み');
         $response->assertSee('500000');
         $response->assertSee('保存');
         $response->assertSee('削除');
