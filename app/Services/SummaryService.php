@@ -94,141 +94,78 @@ class SummaryService
             ),
         ]);
 
-        /*
-         * カテゴリ別支出
-         *
-         * 取引を起点にせず、
-         * ユーザーのカテゴリマスタを起点にする。
-         *
-         * そのため対象年度に支出が0件でも
-         * 必ず年間収支へ表示される。
-         */
         $categories = $user
             ->categories()
             ->orderBy('sort_order')
             ->orderBy('id')
             ->get();
 
-        $categoryRows = $categories
-            ->map(function ($category) use (
-                $expenseTransactions,
+        $incomeCategories = $categories->filter(
+            fn ($category) => $category->type->value === 'income'
+        );
+        $expenseCategories = $categories->filter(
+            fn ($category) => $category->type->value === 'expense'
+        );
+
+        $incomeCategoryRows = $this->makeCategoryRows(
+            $incomeCategories,
+            $incomeTransactions,
+            $averageMonthCount
+        );
+        $expenseCategoryRows = $this->makeCategoryRows(
+            $expenseCategories,
+            $expenseTransactions,
+            $averageMonthCount
+        );
+
+        $creditCards = $user->accounts()
+            ->where('type', AccountType::CREDIT_CARD->value)
+            ->orderBy('sort_order')->orderBy('id')->get();
+
+        $creditCardRows = $creditCards->map(function ($account) use ($expenseTransactions, $averageMonthCount) {
+            return $this->makeAnnualRow(
+                $account->name,
+                $this->sumTransactionsByMonth($expenseTransactions->where('account_id', $account->id)),
                 $averageMonthCount
-            ) {
-                $categoryTransactions =
-                    $expenseTransactions->where(
-                        'category_id',
-                        $category->id
-                    );
-
-                return $this->makeAnnualRow(
-                    $category->name,
-                    $this->sumTransactionsByMonth(
-                        $categoryTransactions
-                    ),
-                    $averageMonthCount
-                );
-            })
-            ->values();
-
-        /*
-         * カテゴリ削除などによって
-         * category_id = null の支出が存在する場合のみ、
-         * 「未分類」を末尾に表示する。
-         */
-        $uncategorizedTransactions =
-            $expenseTransactions->filter(
-                fn ($transaction) =>
-                    $transaction->category_id === null
             );
+        })->values();
 
-        if ($uncategorizedTransactions->isNotEmpty()) {
-            $categoryRows->push(
-                $this->makeAnnualRow(
-                    '未分類',
-                    $this->sumTransactionsByMonth(
-                        $uncategorizedTransactions
-                    ),
-                    $averageMonthCount
-                )
-            );
-        }
+        $normalAccounts = $user->accounts()
+            ->whereIn('type', [AccountType::CASH->value, AccountType::BANK->value])
+            ->orderBy('sort_order')->orderBy('id')->get();
 
-        /*
-         * クレジットカード別支出
-         *
-         * 全クレジットカード口座を表示。
-         * 利用がない年度でも0円で表示する。
-         */
-        $creditCards = $user
-            ->accounts()
-            ->where(
-                'type',
-                AccountType::CREDIT_CARD->value
-            )
-            ->orderBy('sort_order')
-            ->orderBy('id')
+        $balanceTransactions = $user->transactions()
+            ->with(['outgoingTransfer', 'incomingTransfer'])
+            ->whereDate('transaction_date', '<=', $endDate->toDateString())
             ->get();
 
-        $creditCardRows = $creditCards
-            ->map(function ($account) use (
-                $expenseTransactions,
-                $averageMonthCount
-            ) {
-                $accountTransactions =
-                    $expenseTransactions->where(
-                        'account_id',
-                        $account->id
-                    );
-
-                return $this->makeAnnualRow(
-                    $account->name,
-                    $this->sumTransactionsByMonth(
-                        $accountTransactions
-                    ),
-                    $averageMonthCount
-                );
-            })
-            ->values();
-
-        /*
-         * 口座別支出
-         *
-         * 現金・銀行をすべて表示。
-         * クレジットカードは上の専用セクションへ分離。
-         */
-        $normalAccounts = $user
-            ->accounts()
-            ->whereIn(
-                'type',
-                [
-                    AccountType::CASH->value,
-                    AccountType::BANK->value,
-                ]
-            )
-            ->orderBy('sort_order')
-            ->orderBy('id')
-            ->get();
-
-        $accountRows = $normalAccounts
-            ->map(function ($account) use (
-                $expenseTransactions,
-                $averageMonthCount
-            ) {
-                $accountTransactions =
-                    $expenseTransactions->where(
-                        'account_id',
-                        $account->id
-                    );
-
-                return $this->makeAnnualRow(
-                    $account->name,
-                    $this->sumTransactionsByMonth(
-                        $accountTransactions
-                    ),
-                    $averageMonthCount
-                );
-            })
-            ->values();
+        $accountRows = $normalAccounts->map(function ($account) use ($balanceTransactions, $year) {
+            $months = [];
+            for ($month = 1; $month <= 12; $month++) {
+                $monthEnd = CarbonImmutable::create($year, $month, 1)->endOfMonth();
+                $balance = 0;
+                foreach ($balanceTransactions->where('account_id', $account->id) as $transaction) {
+                    if ($transaction->transaction_date->gt($monthEnd)) {
+                        continue;
+                    }
+                    if ($transaction->type === TransactionType::OPENING_BALANCE
+                        || $transaction->type === TransactionType::INCOME) {
+                        $balance += (int) $transaction->amount;
+                    } elseif ($transaction->type === TransactionType::EXPENSE) {
+                        $balance -= (int) $transaction->amount;
+                    } elseif ($transaction->type === TransactionType::TRANSFER) {
+                        if ($transaction->outgoingTransfer !== null) {
+                            $balance -= (int) $transaction->amount;
+                        }
+                        if ($transaction->incomingTransfer !== null) {
+                            $balance += (int) $transaction->amount;
+                        }
+                    }
+                }
+                $months[$month] = $balance;
+            }
+            return ['label' => $account->name, 'months' => $months, 'average' => null, 'total' => null];
+        })->values();
 
         return [
             'year' => $year,
@@ -237,11 +174,37 @@ class SummaryService
             'averageMonthCount' =>
                 $averageMonthCount,
             'summaryRows' => $summaryRows,
-            'categoryRows' => $categoryRows,
+            'incomeCategoryRows' => $incomeCategoryRows,
+            'expenseCategoryRows' => $expenseCategoryRows,
             'creditCardRows' =>
                 $creditCardRows,
             'accountRows' => $accountRows,
         ];
+    }
+
+    private function makeCategoryRows(
+        Collection $categories,
+        Collection $transactions,
+        int $averageMonthCount
+    ): Collection {
+        $rows = $categories->map(function ($category) use ($transactions, $averageMonthCount) {
+            return $this->makeAnnualRow(
+                $category->name,
+                $this->sumTransactionsByMonth($transactions->where('category_id', $category->id)),
+                $averageMonthCount
+            );
+        })->values();
+
+        $uncategorized = $transactions->whereNull('category_id');
+        if ($uncategorized->isNotEmpty()) {
+            $rows->push($this->makeAnnualRow(
+                '未分類',
+                $this->sumTransactionsByMonth($uncategorized),
+                $averageMonthCount
+            ));
+        }
+
+        return $rows;
     }
 
     private function sumTransactionsByMonth(
@@ -608,8 +571,63 @@ class SummaryService
                             ),
                         'amount' =>
                             $amount,
+                        'sort_order' =>
+                            $account->sort_order,
                     ];
                 }
-            );
+            )
+            ->sort(function (
+                array $left,
+                array $right
+            ): int {
+                if (
+                    $left['withdrawal_date'] === null
+                    && $right['withdrawal_date'] !== null
+                ) {
+                    return 1;
+                }
+
+                if (
+                    $left['withdrawal_date'] !== null
+                    && $right['withdrawal_date'] === null
+                ) {
+                    return -1;
+                }
+
+                if (
+                    $left['withdrawal_date'] !== null
+                    && $right['withdrawal_date'] !== null
+                ) {
+                    $dateComparison =
+                        $left['withdrawal_date']
+                            ->getTimestamp()
+                        <=>
+                        $right['withdrawal_date']
+                            ->getTimestamp();
+
+                    if ($dateComparison !== 0) {
+                        return $dateComparison;
+                    }
+                }
+
+                $sortOrderComparison =
+                    $left['sort_order']
+                    <=>
+                    $right['sort_order'];
+
+                if ($sortOrderComparison !== 0) {
+                    return $sortOrderComparison;
+                }
+
+                return $left['account_id']
+                    <=>
+                    $right['account_id'];
+            })
+            ->map(function (array $withdrawal): array {
+                unset($withdrawal['sort_order']);
+
+                return $withdrawal;
+            })
+            ->values();
     }
 }

@@ -93,31 +93,32 @@ class DemoDataService
     ): array {
         $categories = [];
 
-        $categoryNames = [
-            '食費',
-            '日用品',
-            '家賃',
-            '水道光熱費',
-            '通信費',
-            '交通費',
-            '娯楽費',
-            '医療費',
-            '衣服',
-            '給与',
-            '副業収入',
-            'その他',
+        $categoryData = [
+            ['key' => '給与', 'name' => '給与', 'type' => 'income'],
+            ['key' => '副業収入', 'name' => '副業収入', 'type' => 'income'],
+            ['key' => '収入その他', 'name' => 'その他', 'type' => 'income'],
+            ['key' => '食費', 'name' => '食費', 'type' => 'expense'],
+            ['key' => '日用品', 'name' => '日用品', 'type' => 'expense'],
+            ['key' => '家賃', 'name' => '家賃', 'type' => 'expense'],
+            ['key' => '水道光熱費', 'name' => '水道光熱費', 'type' => 'expense'],
+            ['key' => '通信費', 'name' => '通信費', 'type' => 'expense'],
+            ['key' => '交通費', 'name' => '交通費', 'type' => 'expense'],
+            ['key' => '娯楽費', 'name' => '娯楽費', 'type' => 'expense'],
+            ['key' => '医療費', 'name' => '医療費', 'type' => 'expense'],
+            ['key' => '衣服', 'name' => '衣服', 'type' => 'expense'],
+            ['key' => 'その他', 'name' => 'その他', 'type' => 'expense'],
         ];
 
-        foreach (
-            $categoryNames as $index => $name
-        ) {
-            $categories[$name] =
-                Category::create([
-                    'user_id' => $user->id,
-                    'name' => $name,
-                    'sort_order' =>
-                        ($index + 1) * 10,
-                ]);
+        $sortOrders = ['income' => 0, 'expense' => 0];
+
+        foreach ($categoryData as $row) {
+            $sortOrders[$row['type']] += 10;
+            $categories[$row['key']] = Category::create([
+                'user_id' => $user->id,
+                'type' => $row['type'],
+                'name' => $row['name'],
+                'sort_order' => $sortOrders[$row['type']],
+            ]);
         }
 
         return $categories;

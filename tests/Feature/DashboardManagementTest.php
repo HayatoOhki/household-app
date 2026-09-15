@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Enums\AccountType;
+use App\Enums\CategoryType;
 
 use App\Enums\TransactionType;
 use App\Models\Account;
@@ -63,11 +64,13 @@ class DashboardManagementTest extends TestCase
 
         $incomeCategory = Category::create([
             'user_id' => $user->id,
+            'type' => CategoryType::INCOME,
             'name' => '給与',
         ]);
 
         $expenseCategory = Category::create([
             'user_id' => $user->id,
+            'type' => CategoryType::EXPENSE,
             'name' => '食費',
         ]);
 
@@ -132,11 +135,13 @@ class DashboardManagementTest extends TestCase
 
         $incomeCategory = Category::create([
             'user_id' => $user->id,
+            'type' => CategoryType::INCOME,
             'name' => '給与',
         ]);
 
         $expenseCategory = Category::create([
             'user_id' => $user->id,
+            'type' => CategoryType::EXPENSE,
             'name' => '食費',
         ]);
 
@@ -313,11 +318,13 @@ class DashboardManagementTest extends TestCase
 
         $category = Category::create([
             'user_id' => $user->id,
+            'type' => CategoryType::INCOME,
             'name' => '給与',
         ]);
 
         $otherCategory = Category::create([
             'user_id' => $otherUser->id,
+            'type' => CategoryType::INCOME,
             'name' => '他人の給与',
         ]);
 

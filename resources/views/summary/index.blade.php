@@ -5,8 +5,7 @@
 @push('styles')
 <style>
     .annual-summary {
-        width: calc(100vw - 240px);
-        margin-left: calc((100vw - 240px - 100%) / -2);
+        width: 100%;
         padding: 8px 24px 48px;
         box-sizing: border-box;
     }
@@ -151,6 +150,10 @@
         font-weight: 700;
     }
 
+    .annual-table__dash {
+        text-align: center;
+    }
+
     .annual-table__summary-row td {
         height: 54px;
         font-weight: 700;
@@ -178,6 +181,33 @@
         font-size: 13px;
         font-weight: 700;
         text-align: left;
+    }
+
+    .annual-table__category-row[hidden] {
+        display: none;
+    }
+
+    .annual-table__category-label {
+        padding-left: 34px !important;
+        font-weight: 500;
+        text-align: left;
+    }
+
+    .annual-table__toggle {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        border: 0;
+        background: transparent;
+        color: inherit;
+        font: inherit;
+        font-weight: inherit;
+        cursor: pointer;
+    }
+
+    .annual-table__toggle-icon {
+        width: 12px;
+        font-size: 11px;
     }
 
     .annual-table__empty td {
@@ -236,156 +266,79 @@
             </thead>
 
             <tbody>
-
                 @foreach ($summaryRows as $row)
+                    @php
+                        $isIncome = $row['label'] === '収入';
+                        $isExpense = $row['label'] === '支出';
+                        $group = $isIncome ? 'income' : ($isExpense ? 'expense' : null);
+                    @endphp
 
-                    @if ($row['label'] === '収入')
-                        <tr class="annual-table__summary-row annual-table__income">
-                    @elseif ($row['label'] === '支出')
-                        <tr class="annual-table__summary-row annual-table__expense">
-                    @else
-                        <tr class="annual-table__summary-row annual-table__balance">
-                    @endif
-
+                    <tr class="annual-table__summary-row {{ $isIncome ? 'annual-table__income' : ($isExpense ? 'annual-table__expense' : 'annual-table__balance') }}">
                         <td class="annual-table__label">
-                            {{ $row['label'] }}
+                            @if ($group)
+                                <button type="button" class="annual-table__toggle" data-summary-toggle="{{ $group }}" aria-expanded="false">
+                                    <span class="annual-table__toggle-icon">▶</span>
+                                    <span>{{ $row['label'] }}</span>
+                                </button>
+                            @else
+                                {{ $row['label'] }}
+                            @endif
                         </td>
-
                         @for ($month = 1; $month <= 12; $month++)
-                            <td class="annual-table__amount">
-                                {{ number_format($row['months'][$month]) }}円
-                            </td>
+                            <td class="annual-table__amount">{{ number_format($row['months'][$month]) }}円</td>
                         @endfor
-
-                        <td class="annual-table__amount annual-table__average">
-                            {{ number_format($row['average']) }}円
-                        </td>
-
-                        <td class="annual-table__amount annual-table__total">
-                            {{ number_format($row['total']) }}円
-                        </td>
-
+                        <td class="annual-table__amount annual-table__average">{{ number_format($row['average']) }}円</td>
+                        <td class="annual-table__amount annual-table__total">{{ number_format($row['total']) }}円</td>
                     </tr>
 
+                    @if ($isIncome)
+                        @foreach ($incomeCategoryRows as $categoryRow)
+                            <tr class="annual-table__category-row" data-summary-group="income" hidden>
+                                <td class="annual-table__label annual-table__category-label">{{ $categoryRow['label'] }}</td>
+                                @for ($month = 1; $month <= 12; $month++)
+                                    <td class="annual-table__amount">{{ number_format($categoryRow['months'][$month]) }}円</td>
+                                @endfor
+                                <td class="annual-table__amount annual-table__average">{{ number_format($categoryRow['average']) }}円</td>
+                                <td class="annual-table__amount annual-table__total">{{ number_format($categoryRow['total']) }}円</td>
+                            </tr>
+                        @endforeach
+                    @elseif ($isExpense)
+                        @foreach ($expenseCategoryRows as $categoryRow)
+                            <tr class="annual-table__category-row" data-summary-group="expense" hidden>
+                                <td class="annual-table__label annual-table__category-label">{{ $categoryRow['label'] }}</td>
+                                @for ($month = 1; $month <= 12; $month++)
+                                    <td class="annual-table__amount">{{ number_format($categoryRow['months'][$month]) }}円</td>
+                                @endfor
+                                <td class="annual-table__amount annual-table__average">{{ number_format($categoryRow['average']) }}円</td>
+                                <td class="annual-table__amount annual-table__total">{{ number_format($categoryRow['total']) }}円</td>
+                            </tr>
+                        @endforeach
+                    @endif
                 @endforeach
 
-
-                <tr class="annual-table__section">
-                    <td colspan="15">
-                        カテゴリ別支出
-                    </td>
-                </tr>
-
-                @forelse ($categoryRows as $row)
-
-                    <tr>
-                        <td class="annual-table__label">
-                            {{ $row['label'] }}
-                        </td>
-
-                        @for ($month = 1; $month <= 12; $month++)
-                            <td class="annual-table__amount">
-                                {{ number_format($row['months'][$month]) }}円
-                            </td>
-                        @endfor
-
-                        <td class="annual-table__amount annual-table__average">
-                            {{ number_format($row['average']) }}円
-                        </td>
-
-                        <td class="annual-table__amount annual-table__total">
-                            {{ number_format($row['total']) }}円
-                        </td>
-                    </tr>
-
-                @empty
-
-                    <tr class="annual-table__empty">
-                        <td colspan="15">
-                            この年のカテゴリ別支出はありません。
-                        </td>
-                    </tr>
-
-                @endforelse
-
-
-                <tr class="annual-table__section">
-                    <td colspan="15">
-                        クレジットカード別支出
-                    </td>
-                </tr>
-
+                <tr class="annual-table__section"><td colspan="15">クレジットカード別支出</td></tr>
                 @forelse ($creditCardRows as $row)
-
                     <tr>
-                        <td class="annual-table__label">
-                            {{ $row['label'] }}
-                        </td>
-
-                        @for ($month = 1; $month <= 12; $month++)
-                            <td class="annual-table__amount">
-                                {{ number_format($row['months'][$month]) }}円
-                            </td>
-                        @endfor
-
-                        <td class="annual-table__amount annual-table__average">
-                            {{ number_format($row['average']) }}円
-                        </td>
-
-                        <td class="annual-table__amount annual-table__total">
-                            {{ number_format($row['total']) }}円
-                        </td>
+                        <td class="annual-table__label">{{ $row['label'] }}</td>
+                        @for ($month = 1; $month <= 12; $month++)<td class="annual-table__amount">{{ number_format($row['months'][$month]) }}円</td>@endfor
+                        <td class="annual-table__amount annual-table__average">{{ number_format($row['average']) }}円</td>
+                        <td class="annual-table__amount annual-table__total">{{ number_format($row['total']) }}円</td>
                     </tr>
-
                 @empty
-
-                    <tr class="annual-table__empty">
-                        <td colspan="15">
-                            この年のクレジットカード支出はありません。
-                        </td>
-                    </tr>
-
+                    <tr class="annual-table__empty"><td colspan="15">クレジットカード口座はありません。</td></tr>
                 @endforelse
 
-
-                <tr class="annual-table__section">
-                    <td colspan="15">
-                        口座別支出
-                    </td>
-                </tr>
-
+                <tr class="annual-table__section"><td colspan="15">口座残高</td></tr>
                 @forelse ($accountRows as $row)
-
                     <tr>
-                        <td class="annual-table__label">
-                            {{ $row['label'] }}
-                        </td>
-
-                        @for ($month = 1; $month <= 12; $month++)
-                            <td class="annual-table__amount">
-                                {{ number_format($row['months'][$month]) }}円
-                            </td>
-                        @endfor
-
-                        <td class="annual-table__amount annual-table__average">
-                            {{ number_format($row['average']) }}円
-                        </td>
-
-                        <td class="annual-table__amount annual-table__total">
-                            {{ number_format($row['total']) }}円
-                        </td>
+                        <td class="annual-table__label">{{ $row['label'] }}</td>
+                        @for ($month = 1; $month <= 12; $month++)<td class="annual-table__amount">{{ number_format($row['months'][$month]) }}円</td>@endfor
+                        <td class="annual-table__amount annual-table__average annual-table__dash">-</td>
+                        <td class="annual-table__amount annual-table__total annual-table__dash">-</td>
                     </tr>
-
                 @empty
-
-                    <tr class="annual-table__empty">
-                        <td colspan="15">
-                            この年の口座支出はありません。
-                        </td>
-                    </tr>
-
+                    <tr class="annual-table__empty"><td colspan="15">表示できる口座がありません。</td></tr>
                 @endforelse
-
             </tbody>
 
         </table>
@@ -393,3 +346,21 @@
 
 </div>
 @endsection
+
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('[data-summary-toggle]').forEach((button) => {
+        button.addEventListener('click', () => {
+            const group = button.dataset.summaryToggle;
+            const expanded = button.getAttribute('aria-expanded') === 'true';
+            button.setAttribute('aria-expanded', expanded ? 'false' : 'true');
+            button.querySelector('.annual-table__toggle-icon').textContent = expanded ? '▶' : '▼';
+            document.querySelectorAll(`[data-summary-group="${group}"]`).forEach((row) => {
+                row.hidden = expanded;
+            });
+        });
+    });
+});
+</script>
+@endpush

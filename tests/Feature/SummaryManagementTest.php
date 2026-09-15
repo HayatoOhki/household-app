@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Enums\AccountType;
+use App\Enums\CategoryType;
 use App\Models\Account;
 use App\Models\Category;
 use App\Models\Transaction;
@@ -44,9 +45,8 @@ class SummaryManagementTest extends TestCase
         $response->assertOk();
         $response->assertSee('年間収支');
         $response->assertSee('2026年');
-        $response->assertSee('カテゴリ別支出');
         $response->assertSee('クレジットカード別支出');
-        $response->assertSee('口座別支出');
+        $response->assertSee('口座残高');
     }
 
     public function test_summary_calculates_annual_income_expense_and_balance(): void
@@ -143,7 +143,10 @@ class SummaryManagementTest extends TestCase
         $response->assertOk();
 
         $response->assertSee('12,345円');
-        $response->assertDontSee('987,654円');
+
+        // 前年の支出は2026年の支出集計には含まれないが、
+        // 2026年の月末口座残高には繰り越される。
+        $response->assertSee('-987,654円');
     }
 
     public function test_summary_only_uses_current_users_transactions(): void
@@ -161,6 +164,7 @@ class SummaryManagementTest extends TestCase
 
         $otherCategory = Category::create([
             'user_id' => $otherUser->id,
+            'type' => CategoryType::EXPENSE,
             'name' => '他人のカテゴリ',
         ]);
 
@@ -252,7 +256,9 @@ class SummaryManagementTest extends TestCase
 
         $response->assertOk();
 
-        $response->assertDontSee('888,888円');
+        // 初期残高は収入・支出集計には含まれず、
+        // 月末口座残高にのみ反映される。
+        $response->assertSee('888,888円');
     }
 
     public function test_summary_groups_expenses_by_category(): void
@@ -267,11 +273,13 @@ class SummaryManagementTest extends TestCase
 
         $food = Category::create([
             'user_id' => $user->id,
+            'type' => CategoryType::EXPENSE,
             'name' => '食費',
         ]);
 
         $transport = Category::create([
             'user_id' => $user->id,
+            'type' => CategoryType::EXPENSE,
             'name' => '交通費',
         ]);
 
@@ -314,7 +322,7 @@ class SummaryManagementTest extends TestCase
         $response->assertOk();
 
         $response->assertSee('食費');
-        $response->assertSee('5,000円');
+        $response->assertSee('-5,000円');
 
         $response->assertSee('交通費');
         $response->assertSee('1,500円');
@@ -332,6 +340,7 @@ class SummaryManagementTest extends TestCase
 
         $category = Category::create([
             'user_id' => $user->id,
+            'type' => CategoryType::EXPENSE,
             'name' => '食費',
         ]);
 
@@ -368,7 +377,7 @@ class SummaryManagementTest extends TestCase
         $response->assertSee('20,000円');
     }
 
-    public function test_summary_groups_cash_and_bank_expenses_by_account(): void
+    public function test_summary_displays_month_end_cash_and_bank_balances(): void
     {
         $user = User::factory()->create();
 
@@ -386,6 +395,7 @@ class SummaryManagementTest extends TestCase
 
         $category = Category::create([
             'user_id' => $user->id,
+            'type' => CategoryType::EXPENSE,
             'name' => 'その他',
         ]);
 
@@ -419,7 +429,7 @@ class SummaryManagementTest extends TestCase
         $response->assertOk();
 
         $response->assertSee('テスト銀行');
-        $response->assertSee('15,000円');
+        $response->assertSee('-15,000円');
 
         $response->assertSee('テスト現金');
         $response->assertSee('5,000円');
@@ -437,6 +447,7 @@ class SummaryManagementTest extends TestCase
 
         $category = Category::create([
             'user_id' => $user->id,
+            'type' => CategoryType::EXPENSE,
             'name' => 'その他',
         ]);
 
@@ -464,7 +475,7 @@ class SummaryManagementTest extends TestCase
         $response->assertSee('54,321円');
 
         $response->assertSee(
-            'この年の口座支出はありません。'
+            '表示できる口座がありません。'
         );
     }
 
@@ -640,6 +651,7 @@ class SummaryManagementTest extends TestCase
 
         $category = Category::create([
             'user_id' => $user->id,
+            'type' => CategoryType::EXPENSE,
             'name' => 'その他',
         ]);
 

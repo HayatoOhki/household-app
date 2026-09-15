@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Enums\AccountType;
+use App\Enums\CategoryType;
 use App\Enums\TransactionType;
 use App\Models\Account;
 use App\Models\Category;
@@ -95,6 +96,12 @@ class TransactionManagementTest extends TestCase
     {
         [$user, $account, $category] = $this->createUserData();
 
+        $category = Category::create([
+            'user_id' => $user->id,
+            'type' => CategoryType::INCOME,
+            'name' => '給与',
+        ]);
+
         $response = $this
             ->actingAs($user)
             ->post(route('transactions.store'), [
@@ -122,6 +129,12 @@ class TransactionManagementTest extends TestCase
     public function test_income_transaction_clears_withdrawal_date(): void
     {
         [$user, $account, $category] = $this->createUserData();
+
+        $category = Category::create([
+            'user_id' => $user->id,
+            'type' => CategoryType::INCOME,
+            'name' => '給与',
+        ]);
 
         $this
             ->actingAs($user)
@@ -453,6 +466,12 @@ class TransactionManagementTest extends TestCase
     {
         [$user, $account, $category] = $this->createUserData();
 
+        $category = Category::create([
+            'user_id' => $user->id,
+            'type' => CategoryType::INCOME,
+            'name' => '給与',
+        ]);
+
         $transaction = $this->createTransaction(
             $user,
             $account,
@@ -650,6 +669,7 @@ class TransactionManagementTest extends TestCase
 
         $category = Category::create([
             'user_id' => $user->id,
+            'type' => CategoryType::EXPENSE,
             'name' => '食費',
         ]);
 

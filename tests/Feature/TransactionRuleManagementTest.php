@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Enums\AccountType;
+use App\Enums\CategoryType;
 use App\Models\Account;
 use App\Models\Category;
 use App\Models\Transaction;
@@ -65,12 +66,14 @@ class TransactionRuleManagementTest extends TestCase
 
         $category = Category::create([
             'user_id' => $user->id,
+            'type' => CategoryType::EXPENSE,
             'name' => '自分のカテゴリ',
             'sort_order' => 10,
         ]);
 
         $otherCategory = Category::create([
             'user_id' => $otherUser->id,
+            'type' => CategoryType::EXPENSE,
             'name' => '他人のカテゴリ',
             'sort_order' => 10,
         ]);
@@ -179,6 +182,7 @@ class TransactionRuleManagementTest extends TestCase
 
         $category = Category::create([
             'user_id' => $user->id,
+            'type' => CategoryType::EXPENSE,
             'name' => '家賃',
         ]);
 
@@ -233,6 +237,7 @@ class TransactionRuleManagementTest extends TestCase
 
         $category = Category::create([
             'user_id' => $user->id,
+            'type' => CategoryType::EXPENSE,
             'name' => '家賃',
         ]);
 
@@ -406,6 +411,7 @@ class TransactionRuleManagementTest extends TestCase
 
         $category = Category::create([
             'user_id' => $user->id,
+            'type' => CategoryType::EXPENSE,
             'name' => '食費',
         ]);
 
@@ -465,11 +471,13 @@ class TransactionRuleManagementTest extends TestCase
 
         $food = Category::create([
             'user_id' => $user->id,
+            'type' => CategoryType::EXPENSE,
             'name' => '食費',
         ]);
 
         $dailyGoods = Category::create([
             'user_id' => $user->id,
+            'type' => CategoryType::EXPENSE,
             'name' => '日用品',
         ]);
 
@@ -656,6 +664,7 @@ class TransactionRuleManagementTest extends TestCase
 
         $otherCategory = Category::create([
             'user_id' => $otherUser->id,
+            'type' => CategoryType::EXPENSE,
             'name' => '他人のカテゴリ',
         ]);
 
@@ -840,6 +849,7 @@ class TransactionRuleManagementTest extends TestCase
 
         $category = Category::create([
             'user_id' => $user->id,
+            'type' => CategoryType::EXPENSE,
             'name' => '家賃',
         ]);
 
@@ -877,6 +887,7 @@ class TransactionRuleManagementTest extends TestCase
 
         $category = Category::create([
             'user_id' => $user->id,
+            'type' => CategoryType::EXPENSE,
             'name' => '家賃',
         ]);
 
@@ -947,6 +958,7 @@ class TransactionRuleManagementTest extends TestCase
 
         $category = Category::create([
             'user_id' => $user->id,
+            'type' => CategoryType::EXPENSE,
             'name' => 'その他',
         ]);
 

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Enums\AccountType;
+use App\Enums\CategoryType;
 use App\Enums\TransactionType;
 use App\Models\Account;
 use App\Models\Category;
@@ -68,6 +69,7 @@ class BackupManagementTest extends TestCase
 
         $category = Category::create([
             'user_id' => $user->id,
+            'type' => CategoryType::EXPENSE,
             'name' => '食費',
             'sort_order' => 10,
         ]);
@@ -249,6 +251,7 @@ class BackupManagementTest extends TestCase
 
         Category::create([
             'user_id' => $user->id,
+            'type' => CategoryType::EXPENSE,
             'name' => '既存カテゴリ',
             'sort_order' => 10,
         ]);
@@ -534,6 +537,7 @@ class BackupManagementTest extends TestCase
                 'categories' => [
                     [
                         'id' => 300,
+                        'type' => CategoryType::EXPENSE->value,
                         'name' => '食費',
                         'sort_order' => 10,
                     ],

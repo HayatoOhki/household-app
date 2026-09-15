@@ -217,6 +217,7 @@
                     <thead>
                         <tr>
                             <th class="drag-cell"></th>
+                            <th style="width: 140px;">区分</th>
                             <th>カテゴリ名</th>
                             <th class="action-cell">操作</th>
                         </tr>
@@ -233,6 +234,18 @@
                                     >
                                         ☰
                                     </span>
+                                </td>
+
+                                <td>
+                                    <select
+                                        class="master-input"
+                                        data-field="type"
+                                        name="categories[{{ $index }}][type]"
+                                        required
+                                    >
+                                        <option value="income" @selected(old('categories.' . $index . '.type', $category->type->value) === 'income')>収入</option>
+                                        <option value="expense" @selected(old('categories.' . $index . '.type', $category->type->value) === 'expense')>支出</option>
+                                    </select>
                                 </td>
 
                                 <td>
@@ -335,6 +348,13 @@
                         >
                             ☰
                         </span>
+                    </td>
+
+                    <td>
+                        <select class="master-input" data-field="type" required>
+                            <option value="expense">支出</option>
+                            <option value="income">収入</option>
+                        </select>
                     </td>
 
                     <td>

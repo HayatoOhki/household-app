@@ -650,6 +650,10 @@ class TransactionController extends Controller
                     ->where(
                         'user_id',
                         $request->user()->id
+                    )
+                    ->where(
+                        'type',
+                        $request->input('type')
                     ),
             ],
             'counterparty_name' => [

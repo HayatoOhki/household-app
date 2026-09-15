@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Enums\CategoryType;
 use App\Models\Category;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -31,12 +32,14 @@ class CategoryManagementTest extends TestCase
 
         Category::create([
             'user_id' => $user->id,
+            'type' => CategoryType::EXPENSE,
             'name' => '食費',
             'sort_order' => 10,
         ]);
 
         Category::create([
             'user_id' => $otherUser->id,
+            'type' => CategoryType::EXPENSE,
             'name' => '他ユーザーカテゴリ',
             'sort_order' => 10,
         ]);
@@ -60,18 +63,21 @@ class CategoryManagementTest extends TestCase
 
         Category::create([
             'user_id' => $user->id,
+            'type' => CategoryType::EXPENSE,
             'name' => '家賃',
             'sort_order' => 30,
         ]);
 
         Category::create([
             'user_id' => $user->id,
+            'type' => CategoryType::EXPENSE,
             'name' => '食費',
             'sort_order' => 10,
         ]);
 
         Category::create([
             'user_id' => $user->id,
+            'type' => CategoryType::EXPENSE,
             'name' => '日用品',
             'sort_order' => 20,
         ]);
@@ -101,6 +107,7 @@ class CategoryManagementTest extends TestCase
                     'categories' => [
                         [
                             'id' => '',
+                            'type' => CategoryType::EXPENSE->value,
                             'name' => '食費',
                         ],
                     ],
@@ -133,6 +140,7 @@ class CategoryManagementTest extends TestCase
                     'categories' => [
                         [
                             'id' => '',
+                            'type' => CategoryType::EXPENSE->value,
                             'name' => '',
                         ],
                     ],
@@ -156,10 +164,12 @@ class CategoryManagementTest extends TestCase
                     'categories' => [
                         [
                             'id' => '',
+                            'type' => CategoryType::EXPENSE->value,
                             'name' => '食費',
                         ],
                         [
                             'id' => '',
+                            'type' => CategoryType::EXPENSE->value,
                             'name' => '食費',
                         ],
                     ],
@@ -183,6 +193,7 @@ class CategoryManagementTest extends TestCase
 
         Category::create([
             'user_id' => $otherUser->id,
+            'type' => CategoryType::EXPENSE,
             'name' => '食費',
             'sort_order' => 10,
         ]);
@@ -195,6 +206,7 @@ class CategoryManagementTest extends TestCase
                     'categories' => [
                         [
                             'id' => '',
+                            'type' => CategoryType::EXPENSE->value,
                             'name' => '食費',
                         ],
                     ],
@@ -220,12 +232,14 @@ class CategoryManagementTest extends TestCase
 
         $food = Category::create([
             'user_id' => $user->id,
+            'type' => CategoryType::EXPENSE,
             'name' => '食費',
             'sort_order' => 10,
         ]);
 
         $daily = Category::create([
             'user_id' => $user->id,
+            'type' => CategoryType::EXPENSE,
             'name' => '日用品',
             'sort_order' => 20,
         ]);
@@ -238,10 +252,12 @@ class CategoryManagementTest extends TestCase
                     'categories' => [
                         [
                             'id' => $daily->id,
+                            'type' => CategoryType::EXPENSE->value,
                             'name' => '生活用品',
                         ],
                         [
                             'id' => $food->id,
+                            'type' => CategoryType::EXPENSE->value,
                             'name' => '食料品',
                         ],
                     ],
@@ -256,6 +272,7 @@ class CategoryManagementTest extends TestCase
             'categories',
             [
                 'id' => $daily->id,
+                'type' => CategoryType::EXPENSE->value,
                 'name' => '生活用品',
                 'sort_order' => 10,
             ]
@@ -265,6 +282,7 @@ class CategoryManagementTest extends TestCase
             'categories',
             [
                 'id' => $food->id,
+                'type' => CategoryType::EXPENSE->value,
                 'name' => '食料品',
                 'sort_order' => 20,
             ]
@@ -277,12 +295,14 @@ class CategoryManagementTest extends TestCase
 
         $first = Category::create([
             'user_id' => $user->id,
+            'type' => CategoryType::EXPENSE,
             'name' => 'カテゴリA',
             'sort_order' => 10,
         ]);
 
         $second = Category::create([
             'user_id' => $user->id,
+            'type' => CategoryType::EXPENSE,
             'name' => 'カテゴリB',
             'sort_order' => 20,
         ]);
@@ -295,10 +315,12 @@ class CategoryManagementTest extends TestCase
                     'categories' => [
                         [
                             'id' => $first->id,
+                            'type' => CategoryType::EXPENSE->value,
                             'name' => 'カテゴリB',
                         ],
                         [
                             'id' => $second->id,
+                            'type' => CategoryType::EXPENSE->value,
                             'name' => 'カテゴリA',
                         ],
                     ],
@@ -313,6 +335,7 @@ class CategoryManagementTest extends TestCase
             'categories',
             [
                 'id' => $first->id,
+                'type' => CategoryType::EXPENSE->value,
                 'name' => 'カテゴリB',
             ]
         );
@@ -321,6 +344,7 @@ class CategoryManagementTest extends TestCase
             'categories',
             [
                 'id' => $second->id,
+                'type' => CategoryType::EXPENSE->value,
                 'name' => 'カテゴリA',
             ]
         );
@@ -333,6 +357,7 @@ class CategoryManagementTest extends TestCase
 
         $category = Category::create([
             'user_id' => $otherUser->id,
+            'type' => CategoryType::EXPENSE,
             'name' => '他ユーザーカテゴリ',
             'sort_order' => 10,
         ]);
@@ -345,6 +370,7 @@ class CategoryManagementTest extends TestCase
                     'categories' => [
                         [
                             'id' => $category->id,
+                            'type' => CategoryType::EXPENSE->value,
                             'name' => '変更後',
                         ],
                     ],
@@ -357,6 +383,7 @@ class CategoryManagementTest extends TestCase
             'categories',
             [
                 'id' => $category->id,
+                'type' => CategoryType::EXPENSE->value,
                 'name' => '他ユーザーカテゴリ',
             ]
         );
@@ -368,6 +395,7 @@ class CategoryManagementTest extends TestCase
 
         $category = Category::create([
             'user_id' => $user->id,
+            'type' => CategoryType::EXPENSE,
             'name' => '食費',
             'sort_order' => 10,
         ]);
@@ -400,6 +428,7 @@ class CategoryManagementTest extends TestCase
 
         $category = Category::create([
             'user_id' => $otherUser->id,
+            'type' => CategoryType::EXPENSE,
             'name' => '他ユーザーカテゴリ',
             'sort_order' => 10,
         ]);

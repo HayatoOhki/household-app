@@ -229,12 +229,14 @@ Laravel標準ユーザー情報。現在のFortify利用範囲は会員登録・
 主な項目：
 
 -   `user_id`
+-   `type`（income / expense）
 -   `name`
--   `type`（cash / bank / credit_card）
+-   `sort_order`
 
 制約：
 
--   `(user_id, name)` unique
+-   `(user_id, type, name)` unique
+-   同一ユーザーでも収入・支出で同名カテゴリを持てる（例：収入「その他」/ 支出「その他」）
 -   User削除時cascade
 
 ## accounts
@@ -439,7 +441,7 @@ Opening Balanceのみ専用Controller / UIから扱う。
 -   type：expense / income / transfer
 -   amount：1円以上の整数
 -   account：必須
--   category：必須
+-   category：必須（expenseは支出カテゴリ、incomeは収入カテゴリのみ選択・保存可能）
 -   counterparty_name：任意
 -   withdrawal_date：expense + credit_card の場合のみ入力・必須
 -   expense_ratio：expense / income双方で使用可能
@@ -560,41 +562,45 @@ Rule display_name    = 家賃
 
 ## Summary画面
 
-現在は年間収支UIとして実装済み。
+年間収支UIとして実装済み。
 
 -   年選択
 -   1月〜12月
 -   平均
 -   合計
--   カテゴリ別支出
--   クレジットカード別支出
--   現金・銀行口座別支出
 -   収入
 -   支出
 -   収支
+-   収入カテゴリ内訳（初期状態は折りたたみ）
+-   支出カテゴリ内訳（初期状態は折りたたみ）
+-   クレジットカード別支出
+-   口座残高（cash / bank）
+
+収入・支出の行はクリックでカテゴリ内訳を展開する。
+カテゴリは `Category.type` により `income` / `expense` を明示的に分離する。
 
 グラフは使用せず、Excelライクな表形式で正確な数値を確認する方針。
 
 ## 集計仕様
 
-### 月間収支
+### 年間収支
+
+月ごとに、
 
 ``` text
-月間収支 = 月間収入 - 月間支出
+収支 = 収入 - 支出
 ```
 
 -   `INCOME` を収入へ加算
 -   `EXPENSE` を支出へ加算
 -   `TRANSFER` は収入・支出に含めない
 -   `OPENING_BALANCE` は収入・支出に含めない
+-   収入カテゴリは収入行の内訳として集計
+-   支出カテゴリは支出行の内訳として集計
 
-### カテゴリ別支出
+### 年間画面の口座残高
 
-選択月の `EXPENSE` をカテゴリ単位で集計する。
-
-### 口座残高
-
-口座残高は選択月に依存しない現在残高。
+`cash` / `bank` 口座について、各月末時点の残高を表示する。
 
 ``` text
 初期残高
@@ -604,24 +610,34 @@ Rule display_name    = 家賃
 + 振替先
 ```
 
-全期間のTransactionから計算する。
+選択年より前のTransactionも繰越残高として反映する。
+そのため前年以前の支出・収入は選択年の年間収支には含まれないが、月末口座残高には反映される。
+
+口座残高行の「平均」「合計」は集計対象外として `-` を表示する。
+
+### Dashboardの現在口座残高
+
+Dashboardの現在残高は従来どおり全期間のTransactionから計算する。
 
 ## SummaryService
 
 `app/Services/SummaryService.php`
 
-集計ロジックをControllerから分離済み。
-
-主な処理：
-
--   `getMonthlySummary()`
--   `getAccountBalances()`
-
 SummaryControllerとDashboardControllerの双方から利用する。
 
-年間集計・グラフ等を追加する場合も、このServiceを起点に拡張する方針。
+主な責務：
 
-------------------------------------------------------------------------
+-   月間収入 / 支出 / 収支
+-   Dashboard現在口座残高
+-   年間収支
+-   収入 / 支出カテゴリ別年間集計
+-   クレジットカード別年間支出
+-   年間画面の月末口座残高
+-   クレジットカード引落予定
+
+クレジットカード引落予定は、未来の最寄り引落日が近いカードを優先し、同日ならAccountの `sort_order`、次に `id` の順で表示する。
+
+----------------------------------------------------------------------------
 
 # 13. Dashboard
 
@@ -642,7 +658,7 @@ View       dashboard.blade.php
 -   今月の収入
 -   今月の支出
 -   今月の収支
--   クレジットカード引落予定（全カード。未来の最寄り引落日とその金額）
+-   クレジットカード引落予定（全カード。未来の最寄り引落日とその金額。引落日ASC → sort_order → id）
 -   現在の口座残高（cash / bank。credit_cardは除外）
 -   各管理画面へのメニュー
 -   ログアウト
@@ -668,11 +684,24 @@ Balance、通常Transaction、Transfer、TransactionRuleを作成する。
 
 Categories：
 
--   食費
--   交通費
--   家賃
+収入：
 -   給与
+-   副業収入
 -   その他
+
+支出：
+-   食費
+-   日用品
+-   家賃
+-   水道光熱費
+-   通信費
+-   交通費
+-   娯楽費
+-   医療費
+-   衣服
+-   その他
+
+収入・支出の「その他」は別カテゴリとして共存する。
 
 Accounts：
 
@@ -724,7 +753,7 @@ Sample TransactionRule：
 
 ## 最新確認結果
 
-**161 passed / 514 assertions**
+**161 passed / 513 assertions**
 
 全件PASS確認済み。
 
@@ -757,7 +786,11 @@ Account CRUD、ユーザー分離、同一ユーザー内の重複名禁止。
 
 ### CategoryManagementTest
 
-Category CRUD、ユーザー分離、同一ユーザー内の重複名禁止。
+Category CRUD、ユーザー分離、CategoryType（income / expense）を検証。
+
+-   同一ユーザー + 同一type + 同一nameは重複禁止
+-   収入・支出で同名カテゴリは共存可能
+-   typeの保存・更新を検証
 
 ### TransactionManagementTest
 
@@ -770,6 +803,7 @@ Category CRUD、ユーザー分離、同一ユーザー内の重複名禁止。
 -   削除
 -   ユーザー分離
 -   Account / Categoryユーザー分離
+-   expense / incomeとCategory.typeの一致
 -   金額整数制約
 -   expense_ratio
 -   withdrawal_date
@@ -828,19 +862,19 @@ Category CRUD、ユーザー分離、同一ユーザー内の重複名禁止。
 
 ### SummaryManagementTest
 
-11件。
+年間収支の新仕様を含めて検証。
 
 -   Guestアクセス拒否
 -   認証アクセス
--   月間収入 / 支出 / 収支
--   他月除外
+-   年間の収入 / 支出 / 収支
+-   選択年以外の取引を年間収支から除外
+-   前年以前の取引を月末口座残高へ繰り越す
 -   ユーザー分離
--   Transferを月間収支から除外
--   Opening Balanceを月間収支から除外
--   カテゴリ別支出
--   口座残高
--   Transferによる残高移動
--   不正month拒否
+-   Transferを収入 / 支出から除外し、口座残高には反映
+-   Opening Balanceを収入 / 支出から除外し、口座残高には反映
+-   収入カテゴリ別集計
+-   支出カテゴリ別集計
+-   cash / bankの月末口座残高
 
 ### DashboardManagementTest
 
@@ -1086,7 +1120,6 @@ DB項目：
 
 現時点では後回し：
 
--   年間集計
 -   グラフ
 -   前月比較
 -   カテゴリ比率
@@ -1134,6 +1167,17 @@ Ruleは口座 + keyword + category単位の入力補助設定として扱う。U
 raw `counterparty_name` を保存し、`display_name` は表示時のみ使用。
 categoryは入力補助。
 
+## Category Type
+
+Categoryは `income` / `expense` を持つ。
+
+-   `CategoryType::INCOME`
+-   `CategoryType::EXPENSE`
+-   uniqueは `(user_id, type, name)`
+-   収入・支出で同名カテゴリを持てる
+-   通常TransactionではTransaction.typeとCategory.typeを一致させる
+-   年間収支では収入カテゴリ / 支出カテゴリの内訳として利用する
+
 ## Account Type
 
 Accountは `cash` / `bank` / `credit_card` を持つ。
@@ -1173,12 +1217,14 @@ Controller / Service / 集計で他ユーザーのデータを混在させない
 
 ## 集計
 
-月間収支と現在残高は意味を分離する。
+収支と残高は意味を分離する。
 
--   月間収支：選択月のINCOME / EXPENSE
--   現在残高：全期間のTransaction
+-   収入 / 支出：対象期間のINCOME / EXPENSE
+-   Dashboard現在残高：全期間のTransaction
+-   年間収支の口座残高：各月末までのTransaction
 
-Transfer / Opening Balanceを月間収支へ混ぜない。
+Transfer / Opening Balanceを収入・支出へ混ぜない。
+ただし口座残高にはTransfer / Opening Balanceを反映する。
 
 ## Dashboard
 
@@ -1211,6 +1257,7 @@ app/
 ├── Actions/Fortify/
 ├── Enums/
 │   ├── AccountType.php
+│   ├── CategoryType.php
 │   └── TransactionType.php
 ├── Http/
 │   ├── Controllers/
@@ -1432,33 +1479,33 @@ e-Tax提出用データ生成
 -   branchは `main`
 -   `359bcc8 complete household app core UI` をpush済み
 -   `8a12b92 remove unused auth and framework files` をpush済み
--   `8a12b92` が現在確認済みの最新push checkpoint
--   バックアップ・復元機能は現在Working Tree上に実装済みだが、まだcommit / push前
+-   `392fe03 add household backup and restore` をpush済み
+-   **`392fe03` が現在確認済みの最新push checkpoint**
+-   Category収入/支出分離・年間収支改修・Dashboard引落順・年間収支UI微調整は、現時点ではcommit / push完了報告なし
 -   push完了はユーザーが結果を共有した時点で確定扱いにする
 
-`8a12b92` では主に以下を整理済み：
+`392fe03` でユーザー単位JSONバックアップ/完全復元を追加済み。
 
--   未使用Fortify Actions削除
--   Password Reset / Profile Update / Password Update関連整理
--   Passkey migration削除
--   未使用 `resources/css/app.css` / `resources/js/app.js` 削除
--   `welcome.blade.php` 削除
--   `routes/api.php` 削除
--   Laravelサンプル `ExampleTest` 整理
--   Feature側は `RouteAccessTest.php` へ整理
+現在の未push改修の主な内容：
 
-バックアップ・復元機能の現在の未commit差分：
-
--   `app/Http/Controllers/BackupController.php` 新規
--   `app/Services/HouseholdBackupService.php` 新規
--   `resources/views/backup/index.blade.php` 新規
--   `tests/Feature/BackupManagementTest.php` 新規
--   `resources/views/layouts/app.blade.php` 更新
--   `routes/web.php` 更新
+-   CategoryType（income / expense）追加
+-   Category uniqueを `(user_id, type, name)` へ変更
+-   収入・支出で「その他」等の同名カテゴリを共存可能化
+-   Transaction登録/編集でCategory.typeを制御
+-   DemoDataServiceを収入/支出カテゴリへ対応
+-   バックアップ/復元をCategory.typeへ対応
+-   Opening Balance 0円のバックアップ復元対応
+-   年間収支を収入/支出カテゴリ展開UIへ変更
+-   年間画面の口座別支出を月末口座残高へ変更
+-   Dashboardクレジットカード引落予定を引落日順へ変更
+-   年間収支画面の不要な横スクロールを解消
+-   口座残高の平均/合計 `-` を中央揃え
 
 最新テスト：
 
-**161 passed / 514 assertions**
+**161 passed / 513 assertions**
+
+----------------------------------------------------------------------------
 
 # 23. Current Progress
 
@@ -1483,6 +1530,9 @@ e-Tax提出用データ生成
 -   [x] Transaction金額JPY整数化
 -   [x] Account CRUD
 -   [x] Category CRUD
+-   [x] CategoryType（income / expense）
+-   [x] 収入 / 支出で同名カテゴリ共存
+-   [x] Transaction typeとCategory typeの整合性チェック
 -   [x] Transaction支出 / 収入 / 振替 統合CRUD
 -   [x] Transfer一覧1行表示
 -   [x] Transfer登録 / 編集 / 更新 / 削除をTransaction routeへ統合
@@ -1503,6 +1553,7 @@ e-Tax提出用データ生成
 -   [x] Summary最低限UI
 -   [x] Dashboard正式UI
 -   [x] Dashboardクレジットカード引落予定
+-   [x] Dashboardクレジットカード引落予定を最寄り引落日順へ変更
 -   [x] 固定左サイドバー共通レイアウト
 -   [x] Transaction一覧正式UI
 -   [x] Account管理正式UI（index一画面管理 + 並び替え）
@@ -1510,6 +1561,10 @@ e-Tax提出用データ生成
 -   [x] 取引補助設定正式UI（index一画面管理）
 -   [x] Opening Balance正式UI（index一画面管理）
 -   [x] 年間収支正式UI
+-   [x] 年間収支の収入 / 支出カテゴリ展開
+-   [x] 年間収支の月末口座残高
+-   [x] 年間収支画面の不要な横スクロール解消
+-   [x] 口座残高の平均 / 合計 `-` 中央揃え
 -   [x] Transaction登録 / 編集の支出・収入・振替統合UI
 -   [x] `/` Dashboard化
 -   [x] `/home` 廃止
@@ -1519,7 +1574,7 @@ e-Tax提出用データ生成
 -   [x] `migrate:fresh --seed` 動作確認
 -   [x] `test-result.txt` によるテスト結果共有
 -   [x] Unit / Feature Test
--   [x] 161 tests / 514 assertions PASS
+-   [x] 161 tests / 513 assertions PASS
 -   [x] 未使用Fortify / Passkey / Laravelサンプル残骸整理
 -   [x] JSONバックアップ出力
 -   [x] JSON完全復元
@@ -1532,8 +1587,8 @@ e-Tax提出用データ生成
 
 ## 次フェーズ
 
--   [ ] バックアップDL → データ変更 → JSON復元の実操作確認
--   [ ] バックアップ・復元機能をcommit / push
+-   [ ] 今回のCategory / 年間収支 / Dashboard改修をcommit / push
+-   [ ] バックアップDL → データ変更 → JSON復元の実操作確認（未実施なら確認）
 -   [ ] Excelの実データを移行しながら実利用確認
 -   [ ] 不足機能・使いにくさを画面単位で洗い出す
 -   [ ] 必要な機能をその都度追加・修正
@@ -1568,22 +1623,18 @@ e-Tax提出用データ生成
 
 # 24. Recommended Next Implementation
 
-現在はバックアップ・復元機能まで実装・自動テスト済み。
+Category収入/支出分離・年間収支改修・Dashboard引落順調整まで実装し、デモ画面確認および全自動テストPASSまで確認済み。
 
-次は実操作確認を行い、問題なければcommit / pushしてから実データ移行へ進む。
+次は今回の改修をcommit / pushしてcheckpointを作成する。
+
+その後、バックアップ/復元の実操作確認が未実施なら確認し、Excelの実データ移行へ進む。
 
 推奨：
 
 ``` text
-バックアップJSONをダウンロード
+今回の改修をcommit / push
         ↓
-デモデータを1件変更
-        ↓
-JSONから復元
-        ↓
-変更前の状態へ戻ることを確認
-        ↓
-commit / push
+バックアップ/復元の実操作確認（未実施なら）
         ↓
 Excelの実データを移行
         ↓
@@ -1592,59 +1643,62 @@ Excelの実データを移行
 必要ならその場で機能追加
 ```
 
-確認ポイント：
+実データ移行後の確認ポイント：
 
--   口座 / カテゴリ / 取引 / 振替 / 取引補助設定 / 初期残高が復元されるか
--   ログインユーザー・パスワードが変更されないか
--   復元後のTransaction / Transfer / TransactionRule参照関係が正しいか
--   実データ移行後に欲しい情報が入力できるか
+-   収入 / 支出カテゴリの分け方が実データでも自然か
+-   取引登録時のカテゴリ選択が使いやすいか
+-   年間収支のカテゴリ内訳が判断に十分か
+-   月末口座残高がExcel上の残高と一致するか
+-   クレジットカード引落予定の順序が実運用に合うか
 -   編集時に困る項目がないか
 -   一覧で判断に必要な情報が足りるか
--   登録導線が自然か
--   Summary / Dashboardで欲しい数字が取れるか
 -   実運用前にDB構造変更が必要な要件がないか
 
 ここで見つかった問題のうち、**データ構造・意味・ワークフローに関わるものを先に修正**する。
 
 表示だけの問題は実利用しながら必要に応じて調整する。
 
-------------------------------------------------------------------------
+----------------------------------------------------------------------------
 
 # 25. Current State Summary
 
 現在の状態を一言で表すと：
 
-**「主要な家計簿機能・主要画面の正式UI化・ユーザー単位JSONバックアップ/完全復元まで実装済み。161 tests / 514 assertions が全PASS。バックアップ復元の実操作確認後、実データ移行へ進む段階。」**
+**「家計簿v1の主要機能・正式UI・ユーザー単位JSONバックアップ/完全復元に加え、Categoryの収入/支出分離と年間収支の実用化まで完了。161 tests / 513 assertions が全PASSし、デモ画面確認も完了。今回の改修をcommit / push後、実データ移行へ進む段階。」**
 
 特に重要：
 
 -   Dashboardは `/`
 -   `/home` は廃止
 -   route名は `dashboard`
--   ログアウト後 `/login`
--   Account / Category / Transaction CRUD完了
--   Transfer CRUD完了
--   Opening Balance CRUD完了
+-   Categoryは `income` / `expense` を持つ
+-   Category uniqueは `(user_id, type, name)`
+-   収入・支出で同名カテゴリを持てる
+-   通常TransactionではTransaction.typeとCategory.typeを一致させる
+-   Transfer / Opening Balance CRUD完了
 -   TransactionRule CRUD完了
 -   raw counterpartyを保持
--   月間収支ではTransfer / Opening Balanceを除外
--   口座残高ではTransfer / Opening Balanceを正しく反映
--   SummaryServiceで集計ロジック共通化
+-   収入・支出集計ではTransfer / Opening Balanceを除外
+-   残高ではTransfer / Opening Balanceを正しく反映
+-   年間収支は収入 / 支出カテゴリを折りたたみ展開可能
+-   年間収支の口座残高は各月末時点
+-   口座残高の平均 / 合計は `-`
+-   Dashboardクレジットカード引落予定は最寄り引落日順
+-   SummaryServiceで集計ロジックを共通化
 -   主要画面の正式UI化完了（PC専用）
 -   JSONバックアップはログインユーザーの家計簿データのみを対象
 -   復元は現在ユーザーの家計簿データを完全置換
 -   復元時は旧IDをDBへ固定せず、新IDへ参照を再マップ
+-   Opening Balance 0円もバックアップ復元可能
 -   認証情報・パスワードはバックアップ対象外
 -   不正JSON / 不正formatでは既存データを削除しない
 -   復元処理はDB Transaction内で行い、失敗時はロールバック
--   未使用Fortify / Passkey / Laravelサンプル残骸は整理済み
--   年間集計・グラフ等の追加表示は後回し可能
 -   会計拡張のためのTransaction必須カラム追加は現時点で不要
--   最新テストは **161 passed / 514 assertions**
--   最新確認済みGit pushは **8a12b92 remove unused auth and framework files**
--   バックアップ・復元機能はまだcommit / push前
+-   最新テストは **161 passed / 513 assertions**
+-   最新確認済みGit pushは **392fe03 add household backup and restore**
+-   Category / 年間収支 / Dashboardの今回改修はcommit / push完了報告待ち
 
-------------------------------------------------------------------------
+----------------------------------------------------------------------------
 
 # 26. Handoff Rule
 
@@ -1655,7 +1709,7 @@ Excelの実データを移行
 > 続きから実装始めたい
 
 と言った場合は、原則として
-**バックアップ・復元の実操作確認が未完了ならそこから確認し、完了済みなら実データ移行・実利用を進め、必要になった機能を画面単位で追加・調整する** ところから開始する。
+**今回のCategory / 年間収支 / Dashboard改修が未pushならcommit / pushを確認し、その後バックアップ・復元の実操作確認が未完了なら確認する。完了済みなら実データ移行・実利用を進め、必要になった機能を画面単位で追加・調整する** ところから開始する。
 
 ただし現在の会話で、より新しい具体的な実装対象が決まっている場合はそちらを優先する。
 

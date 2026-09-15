@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\CategoryType;
+
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -15,6 +17,7 @@ class Category extends Model
 
     protected $fillable = [
         'user_id',
+        'type',
         'name',
         'sort_order',
     ];
@@ -22,6 +25,7 @@ class Category extends Model
     protected function casts(): array
     {
         return [
+            'type' => CategoryType::class,
             'sort_order' => 'integer',
         ];
     }

@@ -17,6 +17,9 @@ return new class extends Migration
                 ->constrained()
                 ->cascadeOnDelete();
 
+            $table->string('type', 30)
+                ->index();
+
             $table->string('name', 100);
 
             $table->unsignedInteger('sort_order')
@@ -26,6 +29,7 @@ return new class extends Migration
 
             $table->unique([
                 'user_id',
+                'type',
                 'name',
             ]);
 

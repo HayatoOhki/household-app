@@ -422,6 +422,7 @@
                                     @foreach ($categories as $category)
                                         <option
                                             value="{{ $category->id }}"
+                                            data-category-type="{{ $category->type->value }}"
                                             @selected(
                                                 (string) $defaultCategoryId
                                                 === (string) $category->id
@@ -621,7 +622,7 @@
                             type="submit"
                             class="button button-primary"
                         >
-                            登録する
+                            更新する
                         </button>
                     </div>
                 </form>
@@ -716,6 +717,31 @@
                 return document.querySelector(
                     'input[name="type"]:checked'
                 )?.value ?? 'expense';
+            }
+
+            function filterCategoryOptions() {
+                const type = selectedType();
+
+                Array.from(categorySelect.options).forEach(function (option) {
+                    if (!option.value) {
+                        option.hidden = false;
+                        return;
+                    }
+
+                    option.hidden =
+                        option.dataset.categoryType !== type;
+                });
+
+                const selectedOption =
+                    categorySelect.options[categorySelect.selectedIndex];
+
+                if (
+                    selectedOption
+                    && selectedOption.value
+                    && selectedOption.hidden
+                ) {
+                    categorySelect.value = '';
+                }
             }
 
             function selectedAccountType() {
@@ -862,6 +888,10 @@
                 const isCash = accountType === 'cash';
                 const isCreditCard = accountType === 'credit_card';
                 const rules = accountRules();
+
+                if (!isTransfer) {
+                    filterCategoryOptions();
+                }
 
                 const showTemplatePicker =
                     !isTransfer

@@ -75,6 +75,7 @@ class HouseholdBackupService
                     ->map(fn (Category $category): array => [
                         'id' => $category->id,
                         'name' => $category->name,
+                        'type' => $category->type->value,
                         'sort_order' => $category->sort_order,
                     ])
                     ->values()
@@ -319,6 +320,8 @@ class HouseholdBackupService
         foreach ($categories as $category) {
             if (! is_array($category)
                 || ! $this->isPositiveInteger($category['id'] ?? null)
+                || ! is_string($category['type'] ?? null)
+                || ! in_array($category['type'], ['income', 'expense'], true)
                 || ! is_string($category['name'] ?? null)
                 || trim($category['name']) === ''
                 || mb_strlen($category['name']) > 100
@@ -329,12 +332,12 @@ class HouseholdBackupService
             }
 
             if (isset($ids[$category['id']])
-                || isset($names[$category['name']])) {
+                || isset($names[$category['type'] . "\0" . $category['name']])) {
                 $this->invalidBackup();
             }
 
             $ids[$category['id']] = true;
-            $names[$category['name']] = true;
+            $names[$category['type'] . "\0" . $category['name']] = true;
         }
     }
 
@@ -368,8 +371,15 @@ class HouseholdBackupService
                     $transaction['counterparty_name'] ?? null,
                     255
                 )
-                || ! $this->isPositiveInteger(
-                    $transaction['amount'] ?? null
+                || ! (
+                    ($transaction['type'] ?? null)
+                        === TransactionType::OPENING_BALANCE->value
+                        ? $this->isNonNegativeInteger(
+                            $transaction['amount'] ?? null
+                        )
+                        : $this->isPositiveInteger(
+                            $transaction['amount'] ?? null
+                        )
                 )
                 || ! $this->isNullableDate(
                     $transaction['withdrawal_date'] ?? null
@@ -623,6 +633,7 @@ class HouseholdBackupService
             $category = Category::create([
                 'user_id' => $user->id,
                 'name' => $backupCategory['name'],
+                'type' => $backupCategory['type'],
                 'sort_order' => $backupCategory['sort_order'],
             ]);
 
