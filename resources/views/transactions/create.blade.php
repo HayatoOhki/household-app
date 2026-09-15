@@ -126,6 +126,11 @@
             color: var(--text-subtle);
         }
 
+        .readonly-display.is-dash {
+            justify-content: center;
+            text-align: center;
+        }
+
         .amount-wrapper,
         .ratio-wrapper {
             position: relative;
@@ -210,9 +215,13 @@
 
         $defaultCategoryId = old(
             'category_id',
-            $isTransactionDuplicate
-                ? $duplicateTransaction->category_id
-                : ''
+            $isTransferDuplicate
+                ? $duplicateTransfer->fromTransaction->category_id
+                : (
+                    $isTransactionDuplicate
+                        ? $duplicateTransaction->category_id
+                        : ''
+                )
         );
 
         $defaultCounterparty = old(
@@ -374,6 +383,7 @@
                                             <option
                                                 value="{{ $account->id }}"
                                                 data-account-type="{{ $account->type->value }}"
+                                                @if ($account->type->value === 'liability') hidden @endif
                                                 @selected(
                                                     (string) $defaultAccountId
                                                     === (string) $account->id
@@ -402,9 +412,9 @@
 
                         <div
                             id="category-field"
-                            class="form-item normal-field"
+                            class="form-item"
                         >
-                            <label for="category_id" class="form-label">
+                            <label id="category-label" for="category_id" class="form-label">
                                 カテゴリ
                                 <span class="required-mark">*</span>
                             </label>
@@ -467,7 +477,7 @@
 
                             <div
                                 id="display-name"
-                                class="readonly-display"
+                                class="readonly-display is-dash"
                                 aria-live="polite"
                             >
                                 -
@@ -679,6 +689,9 @@
             const categorySelect =
                 document.getElementById('category_id');
 
+            const categoryLabel =
+                document.getElementById('category-label');
+
             const counterpartyLabel =
                 document.getElementById('counterparty-label');
 
@@ -690,6 +703,21 @@
 
             const displayName =
                 document.getElementById('display-name');
+
+            const syncDisplayNameAlignment = () => {
+                displayName.classList.toggle(
+                    'is-dash',
+                    displayName.textContent.trim() === '-'
+                );
+            };
+
+            new MutationObserver(syncDisplayNameAlignment)
+                .observe(displayName, {
+                    childList: true,
+                    characterData: true,
+                    subtree: true,
+                });
+            syncDisplayNameAlignment();
 
             const templatePicker =
                 document.getElementById('template-picker');
@@ -887,9 +915,12 @@
                 const isCreditCard = accountType === 'credit_card';
                 const rules = accountRules();
 
-                if (!isTransfer) {
-                    filterCategoryOptions();
-                }
+                filterCategoryOptions();
+
+                categoryLabel.childNodes[0].nodeValue =
+                    isTransfer
+                        ? '振替内容 '
+                        : 'カテゴリ ';
 
                 const showTemplatePicker =
                     !isTransfer
@@ -955,8 +986,7 @@
                         isTransfer;
                 }
 
-                categorySelect.required =
-                    !isTransfer;
+                categorySelect.required = true;
 
                 accountSelect.required =
                     !isTransfer;

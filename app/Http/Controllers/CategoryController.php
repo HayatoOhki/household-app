@@ -19,7 +19,7 @@ class CategoryController extends Controller
     public function index(Request $request): View
     {
         $categories = $request->user()->categories()
-            ->orderByRaw("CASE WHEN type = 'income' THEN 0 ELSE 1 END")
+            ->orderByRaw("CASE type WHEN 'income' THEN 0 WHEN 'expense' THEN 1 WHEN 'transfer' THEN 2 ELSE 3 END")
             ->orderBy('sort_order')->orderBy('id')->get();
 
         return view('categories.index', compact('categories'));
@@ -32,7 +32,11 @@ class CategoryController extends Controller
             'categories.*.id' => ['nullable', 'integer', 'distinct'],
             'categories.*.type' => [
                 'required',
-                Rule::in([CategoryType::INCOME->value, CategoryType::EXPENSE->value]),
+                Rule::in([
+                    CategoryType::INCOME->value,
+                    CategoryType::EXPENSE->value,
+                    CategoryType::TRANSFER->value,
+                ]),
             ],
             'categories.*.name' => ['required', 'string', 'max:100'],
         ]);
@@ -74,7 +78,11 @@ class CategoryController extends Controller
                 $category->update(['name' => '__tmp_category_' . $category->id . '_' . Str::uuid()]);
             }
 
-            $sortOrders = [CategoryType::INCOME->value => 0, CategoryType::EXPENSE->value => 0];
+            $sortOrders = [
+                CategoryType::INCOME->value => 0,
+                CategoryType::EXPENSE->value => 0,
+                CategoryType::TRANSFER->value => 0,
+            ];
             foreach ($rows as $row) {
                 $sortOrders[$row['type']] += 10;
                 $values = [

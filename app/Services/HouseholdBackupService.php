@@ -321,7 +321,7 @@ class HouseholdBackupService
             if (! is_array($category)
                 || ! $this->isPositiveInteger($category['id'] ?? null)
                 || ! is_string($category['type'] ?? null)
-                || ! in_array($category['type'], ['income', 'expense'], true)
+                || ! in_array($category['type'], ['income', 'expense', 'transfer'], true)
                 || ! is_string($category['name'] ?? null)
                 || trim($category['name']) === ''
                 || mb_strlen($category['name']) > 100

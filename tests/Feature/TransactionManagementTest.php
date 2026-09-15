@@ -179,6 +179,11 @@ class TransactionManagementTest extends TestCase
                 'type' => TransactionType::TRANSFER->value,
                 'from_account_id' => $fromAccount->id,
                 'to_account_id' => $toAccount->id,
+                'category_id' => Category::create([
+                    'user_id' => $user->id,
+                    'type' => CategoryType::TRANSFER,
+                    'name' => '資金移動',
+                ])->id,
                 'amount' => 10000,
             ]);
 
@@ -529,6 +534,11 @@ class TransactionManagementTest extends TestCase
                 'type' => TransactionType::TRANSFER->value,
                 'from_account_id' => $fromAccount->id,
                 'to_account_id' => $toAccount->id,
+                'category_id' => Category::create([
+                    'user_id' => $user->id,
+                    'type' => CategoryType::TRANSFER,
+                    'name' => '資金移動',
+                ])->id,
                 'amount' => 10000,
             ]);
 

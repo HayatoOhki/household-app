@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Enums\AccountType;
+use App\Enums\CategoryType;
 use App\Enums\TransactionType;
 use App\Models\Account;
+use App\Models\Category;
 use App\Models\Transaction;
 use App\Models\Transfer;
 use App\Models\User;
@@ -47,6 +49,7 @@ class TransferManagementTest extends TestCase
                 'transaction_date' => '2026-09-11',
                 'from_account_id' => $fromAccount->id,
                 'to_account_id' => $toAccount->id,
+                'category_id' => $this->createTransferCategory($user)->id,
                 'amount' => 10000,
             ]);
 
@@ -83,6 +86,7 @@ class TransferManagementTest extends TestCase
                 'transaction_date' => '2026-09-11',
                 'from_account_id' => $account->id,
                 'to_account_id' => $account->id,
+                'category_id' => $this->createTransferCategory($user)->id,
                 'amount' => 10000,
             ]);
 
@@ -106,6 +110,7 @@ class TransferManagementTest extends TestCase
                 'transaction_date' => '2026-09-11',
                 'from_account_id' => $fromAccount->id,
                 'to_account_id' => $otherAccount->id,
+                'category_id' => $this->createTransferCategory($user)->id,
                 'amount' => 10000,
             ]);
 
@@ -128,6 +133,7 @@ class TransferManagementTest extends TestCase
                     'transaction_date' => '2026-09-11',
                     'from_account_id' => $fromAccount->id,
                     'to_account_id' => $toAccount->id,
+                    'category_id' => $this->createTransferCategory($user)->id,
                     'amount' => $amount,
                 ]);
 
@@ -202,6 +208,7 @@ class TransferManagementTest extends TestCase
                 'transaction_date' => '2026-09-20',
                 'from_account_id' => $newFromAccount->id,
                 'to_account_id' => $newToAccount->id,
+                'category_id' => $this->createTransferCategory($user)->id,
                 'amount' => 20000,
             ]);
 
@@ -300,6 +307,18 @@ class TransferManagementTest extends TestCase
         ]);
     }
 
+    private function createTransferCategory(User $user): Category
+    {
+        return Category::firstOrCreate(
+            [
+                'user_id' => $user->id,
+                'type' => CategoryType::TRANSFER,
+                'name' => '資金移動',
+            ],
+            ['sort_order' => 10]
+        );
+    }
+
     private function createTransferData(): array
     {
         $user = User::factory()->create();
@@ -316,12 +335,14 @@ class TransferManagementTest extends TestCase
             AccountType::CASH
         );
 
+        $transferCategory = $this->createTransferCategory($user);
+
         $fromTransaction = Transaction::create([
             'user_id' => $user->id,
             'transaction_date' => '2026-09-11',
             'type' => TransactionType::TRANSFER,
             'account_id' => $fromAccount->id,
-            'category_id' => null,
+            'category_id' => $transferCategory->id,
             'counterparty_name' => null,
             'amount' => 10000,
             'withdrawal_date' => null,
@@ -335,7 +356,7 @@ class TransferManagementTest extends TestCase
             'transaction_date' => '2026-09-11',
             'type' => TransactionType::TRANSFER,
             'account_id' => $toAccount->id,
-            'category_id' => null,
+            'category_id' => $transferCategory->id,
             'counterparty_name' => null,
             'amount' => 10000,
             'withdrawal_date' => null,

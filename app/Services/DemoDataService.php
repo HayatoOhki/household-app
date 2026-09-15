@@ -107,9 +107,14 @@ class DemoDataService
             ['key' => '医療費', 'name' => '医療費', 'type' => 'expense'],
             ['key' => '衣服', 'name' => '衣服', 'type' => 'expense'],
             ['key' => 'その他', 'name' => 'その他', 'type' => 'expense'],
+            ['key' => 'カード利用代金引落', 'name' => 'カード利用代金引落', 'type' => 'transfer'],
+            ['key' => 'チャージ', 'name' => 'チャージ', 'type' => 'transfer'],
+            ['key' => '借入', 'name' => '借入', 'type' => 'transfer'],
+            ['key' => '返済', 'name' => '返済', 'type' => 'transfer'],
+            ['key' => '資金移動', 'name' => '資金移動', 'type' => 'transfer'],
         ];
 
-        $sortOrders = ['income' => 0, 'expense' => 0];
+        $sortOrders = ['income' => 0, 'expense' => 0, 'transfer' => 0];
 
         foreach ($categoryData as $row) {
             $sortOrders[$row['type']] += 10;
@@ -160,6 +165,16 @@ class DemoDataService
                     AccountType::CREDIT_CARD,
                 'sort_order' => 50,
             ],
+            [
+                'name' => 'PayPay',
+                'type' => AccountType::E_MONEY,
+                'sort_order' => 60,
+            ],
+            [
+                'name' => 'サンプルローン',
+                'type' => AccountType::LIABILITY,
+                'sort_order' => 70,
+            ],
         ];
 
         foreach ($accountData as $data) {
@@ -192,6 +207,8 @@ class DemoDataService
             '現金' => 30000,
             '三井住友銀行' => 650000,
             '楽天銀行' => 180000,
+            'PayPay' => 5000,
+            'サンプルローン' => 300000,
         ];
 
         foreach (
@@ -414,6 +431,7 @@ class DemoDataService
                         20
                     ),
                 amount: 50000,
+                categoryId: $categories['資金移動']->id,
             );
     }
 
@@ -649,6 +667,7 @@ class DemoDataService
                             11
                         ),
                     amount: 20000,
+                    categoryId: $categories['資金移動']->id,
                 );
         }
 
@@ -686,6 +705,44 @@ class DemoDataService
                     false,
             ]);
         }
+
+        $demoDate = $this->safeCurrentDate($year, $month, 20);
+
+        $this->transactionService->createTransfer(
+            user: $user,
+            fromAccount: $accounts['三井住友銀行'],
+            toAccount: $accounts['PayPay'],
+            transactionDate: $demoDate,
+            amount: 5000,
+            categoryId: $categories['チャージ']->id,
+        );
+
+        $this->transactionService->createTransfer(
+            user: $user,
+            fromAccount: $accounts['三井住友銀行'],
+            toAccount: $accounts['楽天カード'],
+            transactionDate: $demoDate,
+            amount: 20000,
+            categoryId: $categories['カード利用代金引落']->id,
+        );
+
+        $this->transactionService->createTransfer(
+            user: $user,
+            fromAccount: $accounts['サンプルローン'],
+            toAccount: $accounts['三井住友銀行'],
+            transactionDate: $demoDate,
+            amount: 100000,
+            categoryId: $categories['借入']->id,
+        );
+
+        $this->transactionService->createTransfer(
+            user: $user,
+            fromAccount: $accounts['三井住友銀行'],
+            toAccount: $accounts['サンプルローン'],
+            transactionDate: $demoDate,
+            amount: 50000,
+            categoryId: $categories['返済']->id,
+        );
     }
 
     /**

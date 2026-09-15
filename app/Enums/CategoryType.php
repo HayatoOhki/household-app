@@ -8,12 +8,14 @@ enum CategoryType: string
 {
     case EXPENSE = 'expense';
     case INCOME = 'income';
+    case TRANSFER = 'transfer';
 
     public function label(): string
     {
         return match ($this) {
             self::EXPENSE => '支出',
             self::INCOME => '収入',
+            self::TRANSFER => '振替',
         };
     }
 }

@@ -837,13 +837,19 @@
                                         @endif
                                     </td>
 
-                                    {{-- 取引先 --}}
-                                    <td class="left-cell">
-                                        @if ($isNormalTransaction)
-                                            {{ $displayName ?? '-' }}
-                                        @else
-                                            -
-                                        @endif
+                                    {{-- 取引先 / 振替内容 --}}
+                                    @php
+                                        $counterpartyDisplay =
+                                            $isNormalTransaction
+                                                ? $displayName
+                                                : (
+                                                    $transaction->type->value === 'transfer'
+                                                        ? $transaction->category?->name
+                                                        : null
+                                                );
+                                    @endphp
+                                    <td class="{{ $counterpartyDisplay === null ? 'center-cell' : 'left-cell' }}">
+                                        {{ $counterpartyDisplay ?? '-' }}
                                     </td>
 
                                     {{-- 金額 --}}

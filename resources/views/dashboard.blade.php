@@ -69,6 +69,11 @@
             margin-top: 0;
         }
 
+        .dashboard-side-column {
+            display: grid;
+            gap: 24px;
+        }
+
         .withdrawal-date {
             white-space: nowrap;
         }
@@ -202,6 +207,7 @@
                     @endif
                 </section>
 
+                <div class="dashboard-side-column">
                 <section class="panel">
                     <div class="panel-header">
                         <h2 class="panel-title">
@@ -212,7 +218,7 @@
                     @if ($accountBalances->isEmpty())
                         <div class="panel-body">
                             <p class="empty-message">
-                                現金・銀行口座が登録されていません。
+                                現金・銀行・電子マネー口座が登録されていません。
                             </p>
                         </div>
                     @else
@@ -256,6 +262,42 @@
                         </table>
                     @endif
                 </section>
+
+                <section class="panel">
+                    <div class="panel-header">
+                        <h2 class="panel-title">
+                            借入残高
+                        </h2>
+                    </div>
+
+                    @if ($liabilityBalances->isEmpty())
+                        <div class="panel-body">
+                            <p class="empty-message">
+                                借入口座が登録されていません。
+                            </p>
+                        </div>
+                    @else
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>借入先</th>
+                                    <th class="amount">残債</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach ($liabilityBalances as $liabilityBalance)
+                                    <tr>
+                                        <td>{{ $liabilityBalance['account_name'] }}</td>
+                                        <td class="amount account-balance">
+                                            {{ number_format($liabilityBalance['balance']) }} 円
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    @endif
+                </section>
+                </div>
             </div>
         </main>
     </div>

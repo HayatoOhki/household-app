@@ -293,6 +293,7 @@ class TransactionController extends Controller
                 toAccount: $toAccount,
                 transactionDate: $validated['transaction_date'],
                 amount: (int) $validated['amount'],
+                categoryId: (int) $validated['category_id'],
             );
 
             return redirect()
@@ -425,6 +426,7 @@ class TransactionController extends Controller
                 toAccount: $toAccount,
                 transactionDate: $validated['transaction_date'],
                 amount: (int) $validated['amount'],
+                categoryId: (int) $validated['category_id'],
             );
 
             return redirect()
@@ -480,6 +482,7 @@ class TransactionController extends Controller
                     toAccount: $toAccount,
                     transactionDate: $validated['transaction_date'],
                     amount: (int) $validated['amount'],
+                    categoryId: (int) $validated['category_id'],
                 );
 
                 $transaction->delete();
@@ -639,10 +642,11 @@ class TransactionController extends Controller
             'account_id' => [
                 'required',
                 Rule::exists('accounts', 'id')
-                    ->where(
-                        'user_id',
-                        $request->user()->id
-                    ),
+                    ->where(function ($query) use ($request) {
+                        $query
+                            ->where('user_id', $request->user()->id)
+                            ->where('type', '!=', AccountType::LIABILITY->value);
+                    }),
             ],
             'category_id' => [
                 'required',
@@ -708,6 +712,15 @@ class TransactionController extends Controller
                         'user_id',
                         $request->user()->id
                     ),
+            ],
+            'category_id' => [
+                'required',
+                Rule::exists('categories', 'id')
+                    ->where(
+                        'user_id',
+                        $request->user()->id
+                    )
+                    ->where('type', 'transfer'),
             ],
             'amount' => [
                 'required',

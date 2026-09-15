@@ -339,6 +339,18 @@
                 @empty
                     <tr class="annual-table__empty"><td colspan="15">表示できる口座がありません。</td></tr>
                 @endforelse
+
+                <tr class="annual-table__section"><td colspan="15">借入残高</td></tr>
+                @forelse ($liabilityRows as $row)
+                    <tr>
+                        <td class="annual-table__label">{{ $row['label'] }}</td>
+                        @for ($month = 1; $month <= 12; $month++)<td class="annual-table__amount">{{ number_format($row['months'][$month]) }}円</td>@endfor
+                        <td class="annual-table__amount annual-table__average annual-table__dash">-</td>
+                        <td class="annual-table__amount annual-table__total annual-table__dash">-</td>
+                    </tr>
+                @empty
+                    <tr class="annual-table__empty"><td colspan="15">借入口座はありません。</td></tr>
+                @endforelse
             </tbody>
 
         </table>

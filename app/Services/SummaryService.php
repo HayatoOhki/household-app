@@ -131,7 +131,11 @@ class SummaryService
         })->values();
 
         $normalAccounts = $user->accounts()
-            ->whereIn('type', [AccountType::CASH->value, AccountType::BANK->value])
+            ->whereIn('type', [
+                AccountType::CASH->value,
+                AccountType::BANK->value,
+                AccountType::E_MONEY->value,
+            ])
             ->orderBy('sort_order')->orderBy('id')->get();
 
         $balanceTransactions = $user->transactions()
@@ -167,6 +171,35 @@ class SummaryService
             return ['label' => $account->name, 'months' => $months, 'average' => null, 'total' => null];
         })->values();
 
+        $liabilityAccounts = $user->accounts()
+            ->where('type', AccountType::LIABILITY->value)
+            ->orderBy('sort_order')->orderBy('id')->get();
+
+        $liabilityRows = $liabilityAccounts->map(function ($account) use ($balanceTransactions, $year) {
+            $months = [];
+            for ($month = 1; $month <= 12; $month++) {
+                $monthEnd = CarbonImmutable::create($year, $month, 1)->endOfMonth();
+                $balance = 0;
+                foreach ($balanceTransactions->where('account_id', $account->id) as $transaction) {
+                    if ($transaction->transaction_date->gt($monthEnd)) {
+                        continue;
+                    }
+                    if ($transaction->type === TransactionType::OPENING_BALANCE) {
+                        $balance += (int) $transaction->amount;
+                    } elseif ($transaction->type === TransactionType::TRANSFER) {
+                        if ($transaction->outgoingTransfer !== null) {
+                            $balance += (int) $transaction->amount;
+                        }
+                        if ($transaction->incomingTransfer !== null) {
+                            $balance -= (int) $transaction->amount;
+                        }
+                    }
+                }
+                $months[$month] = $balance;
+            }
+            return ['label' => $account->name, 'months' => $months, 'average' => null, 'total' => null];
+        })->values();
+
         return [
             'year' => $year,
             'previousYear' => $year - 1,
@@ -179,6 +212,7 @@ class SummaryService
             'creditCardRows' =>
                 $creditCardRows,
             'accountRows' => $accountRows,
+            'liabilityRows' => $liabilityRows,
         ];
     }
 
@@ -390,11 +424,37 @@ class SummaryService
                         );
 
                     $balance = 0;
+                    $isLiability =
+                        $account->type === AccountType::LIABILITY;
 
                     foreach (
                         $transactions
                         as $transaction
                     ) {
+                        if ($isLiability) {
+                            if (
+                                $transaction->type
+                                === TransactionType::OPENING_BALANCE
+                            ) {
+                                $balance += $transaction->amount;
+                                continue;
+                            }
+
+                            if (
+                                $transaction->type
+                                === TransactionType::TRANSFER
+                            ) {
+                                if ($transaction->outgoingTransfer !== null) {
+                                    $balance += $transaction->amount;
+                                }
+
+                                if ($transaction->incomingTransfer !== null) {
+                                    $balance -= $transaction->amount;
+                                }
+                            }
+
+                            continue;
+                        }
                         if (
                             $transaction->type
                             ===
@@ -479,8 +539,22 @@ class SummaryService
                     $accountBalance[
                         'account_type'
                     ]
-                    !==
-                    AccountType::CREDIT_CARD
+                    !== AccountType::CREDIT_CARD
+                    && $accountBalance['account_type']
+                    !== AccountType::LIABILITY
+            )
+            ->values();
+    }
+
+    public function getDashboardLiabilityBalances(
+        User $user
+    ): Collection {
+        return $this
+            ->getAccountBalances($user)
+            ->filter(
+                fn (array $accountBalance) =>
+                    $accountBalance['account_type']
+                    === AccountType::LIABILITY
             )
             ->values();
     }

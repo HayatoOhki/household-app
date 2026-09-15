@@ -40,6 +40,12 @@ class DashboardController extends Controller
                     $user
                 );
 
+        $liabilityBalances =
+            $this->summaryService
+                ->getDashboardLiabilityBalances(
+                    $user
+                );
+
         return view(
             'dashboard',
             [
@@ -48,6 +54,8 @@ class DashboardController extends Controller
                     $creditCardWithdrawals,
                 'accountBalances' =>
                     $accountBalances,
+                'liabilityBalances' =>
+                    $liabilityBalances,
             ]
         );
     }

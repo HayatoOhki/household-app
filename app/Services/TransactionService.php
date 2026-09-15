@@ -23,6 +23,7 @@ class TransactionService
         Account $toAccount,
         string $transactionDate,
         int $amount,
+        ?int $categoryId = null,
     ): array {
         $this->validateTransferAccounts(
             $user,
@@ -38,13 +39,14 @@ class TransactionService
             $toAccount,
             $transactionDate,
             $amount,
+            $categoryId,
         ): array {
             $fromTransaction = Transaction::create([
                 'user_id' => $user->id,
                 'transaction_date' => $transactionDate,
                 'type' => 'transfer',
                 'account_id' => $fromAccount->id,
-                'category_id' => null,
+                'category_id' => $categoryId,
                 'counterparty_name' => null,
                 'amount' => $amount,
                 'expense_ratio' => 0,
@@ -57,7 +59,7 @@ class TransactionService
                 'transaction_date' => $transactionDate,
                 'type' => 'transfer',
                 'account_id' => $toAccount->id,
-                'category_id' => null,
+                'category_id' => $categoryId,
                 'counterparty_name' => null,
                 'amount' => $amount,
                 'expense_ratio' => 0,
@@ -88,6 +90,7 @@ class TransactionService
         Account $toAccount,
         string $transactionDate,
         int $amount,
+        ?int $categoryId = null,
     ): void {
         $this->validateTransferOwnership(
             $user,
@@ -108,17 +111,20 @@ class TransactionService
             $toAccount,
             $transactionDate,
             $amount,
+            $categoryId,
         ): void {
             $transfer->fromTransaction->update([
                 'transaction_date' => $transactionDate,
                 'account_id' => $fromAccount->id,
                 'amount' => $amount,
+                'category_id' => $categoryId,
             ]);
 
             $transfer->toTransaction->update([
                 'transaction_date' => $transactionDate,
                 'account_id' => $toAccount->id,
                 'amount' => $amount,
+                'category_id' => $categoryId,
             ]);
         });
     }

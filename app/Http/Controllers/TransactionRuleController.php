@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Enums\AccountType;
+use App\Enums\CategoryType;
 use App\Models\Account;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -20,17 +21,20 @@ class TransactionRuleController extends Controller
     {
         $accounts = $request->user()
             ->accounts()
-            ->where(
-                'type',
-                '!=',
-                AccountType::CASH->value
-            )
+            ->whereNotIn('type', [
+                AccountType::CASH->value,
+                AccountType::LIABILITY->value,
+            ])
             ->orderBy('sort_order')
             ->orderBy('id')
             ->get();
 
         $categories = $request->user()
             ->categories()
+            ->whereIn('type', [
+                CategoryType::INCOME->value,
+                CategoryType::EXPENSE->value,
+            ])
             ->orderBy('sort_order')
             ->orderBy('id')
             ->get();
@@ -66,7 +70,11 @@ class TransactionRuleController extends Controller
         );
 
         abort_if(
-            $account->type === AccountType::CASH,
+            in_array(
+                $account->type,
+                [AccountType::CASH, AccountType::LIABILITY],
+                true
+            ),
             404
         );
 
@@ -96,10 +104,14 @@ class TransactionRuleController extends Controller
                 Rule::exists(
                     'categories',
                     'id'
-                )->where(
-                    'user_id',
-                    $request->user()->id
-                ),
+                )->where(function ($query) use ($request) {
+                    $query
+                        ->where('user_id', $request->user()->id)
+                        ->whereIn('type', [
+                            CategoryType::INCOME->value,
+                            CategoryType::EXPENSE->value,
+                        ]);
+                }),
             ],
         ]);
 

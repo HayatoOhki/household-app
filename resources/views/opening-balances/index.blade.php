@@ -200,7 +200,7 @@
                             </th>
 
                             <th class="amount-column">
-                                初期残高
+                                初期残高・残債
                             </th>
 
                             <th class="action-column">
