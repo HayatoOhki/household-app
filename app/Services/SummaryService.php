@@ -618,6 +618,8 @@ class SummaryService
                             'withdrawal_date' =>
                                 null,
                             'amount' => 0,
+                            'sort_order' =>
+                                $account->sort_order,
                         ];
                     }
 

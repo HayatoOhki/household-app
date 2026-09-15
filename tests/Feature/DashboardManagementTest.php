@@ -380,4 +380,39 @@ class DashboardManagementTest extends TestCase
             '他人の銀行'
         );
     }
+
+    public function test_dashboard_displays_credit_card_without_withdrawal_transactions(): void
+    {
+        $user = User::factory()->create();
+
+        Account::create([
+            'user_id' => $user->id,
+            'name' => '楽天カード',
+            'type' => AccountType::CREDIT_CARD,
+            'sort_order' => 10,
+        ]);
+
+        Account::create([
+            'user_id' => $user->id,
+            'name' => 'NLカード',
+            'type' => AccountType::CREDIT_CARD,
+            'sort_order' => 20,
+        ]);
+
+        $response = $this
+            ->actingAs($user)
+            ->get(
+                route('dashboard')
+            );
+
+        $response->assertSuccessful();
+
+        $response->assertSee(
+            '楽天カード'
+        );
+
+        $response->assertSee(
+            'NLカード'
+        );
+    }
 }
