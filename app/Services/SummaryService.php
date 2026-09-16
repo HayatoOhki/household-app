@@ -131,12 +131,29 @@ class SummaryService
             ->where('type', AccountType::CREDIT_CARD->value)
             ->orderBy('sort_order')->orderBy('id')->get();
 
-        $creditCardRows = $creditCards->map(function ($account) use ($expenseTransactions, $refundTransactions, $averageMonthCount) {
+        $creditCardTransactions = $user
+            ->transactions()
+            ->with('outgoingTransfer')
+            ->whereIn('type', [
+                TransactionType::EXPENSE->value,
+                TransactionType::REFUND->value,
+                TransactionType::TRANSFER->value,
+            ])
+            ->whereNotNull('withdrawal_date')
+            ->whereBetween(
+                'withdrawal_date',
+                [
+                    $startDate->toDateString(),
+                    $endDate->toDateString(),
+                ]
+            )
+            ->get();
+
+        $creditCardRows = $creditCards->map(function ($account) use ($creditCardTransactions, $averageMonthCount) {
             return $this->makeAnnualRow(
                 $account->name,
-                $this->subtractMonthlyAmounts(
-                    $this->sumTransactionsByMonth($expenseTransactions->where('account_id', $account->id)),
-                    $this->sumTransactionsByMonth($refundTransactions->where('account_id', $account->id))
+                $this->sumCreditCardTransactionsByWithdrawalMonth(
+                    $creditCardTransactions->where('account_id', $account->id)
                 ),
                 $averageMonthCount
             );
@@ -325,6 +342,45 @@ class SummaryService
             $month = (int) $transaction
                 ->transaction_date
                 ->format('n');
+
+            $months[$month] +=
+                (int) $transaction->amount;
+        }
+
+        return $months;
+    }
+
+    private function sumCreditCardTransactionsByWithdrawalMonth(
+        Collection $transactions
+    ): array {
+        $months = array_fill(
+            1,
+            12,
+            0
+        );
+
+        foreach ($transactions as $transaction) {
+            if ($transaction->withdrawal_date === null) {
+                continue;
+            }
+
+            $month = (int) $transaction
+                ->withdrawal_date
+                ->format('n');
+
+            if ($transaction->type === TransactionType::REFUND) {
+                $months[$month] -=
+                    (int) $transaction->amount;
+
+                continue;
+            }
+
+            if (
+                $transaction->type === TransactionType::TRANSFER
+                && $transaction->outgoingTransfer === null
+            ) {
+                continue;
+            }
 
             $months[$month] +=
                 (int) $transaction->amount;
