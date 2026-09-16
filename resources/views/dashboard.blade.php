@@ -263,6 +263,7 @@
                     @endif
                 </section>
 
+                @if ($liabilityBalances->isNotEmpty())
                 <section class="panel">
                     <div class="panel-header">
                         <h2 class="panel-title">
@@ -270,13 +271,6 @@
                         </h2>
                     </div>
 
-                    @if ($liabilityBalances->isEmpty())
-                        <div class="panel-body">
-                            <p class="empty-message">
-                                借入口座が登録されていません。
-                            </p>
-                        </div>
-                    @else
                         <table class="data-table">
                             <thead>
                                 <tr>
@@ -295,8 +289,8 @@
                                 @endforeach
                             </tbody>
                         </table>
-                    @endif
                 </section>
+                @endif
                 </div>
             </div>
         </main>

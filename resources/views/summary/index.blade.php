@@ -332,7 +332,11 @@
                 @forelse ($accountRows as $row)
                     <tr>
                         <td class="annual-table__label">{{ $row['label'] }}</td>
-                        @for ($month = 1; $month <= 12; $month++)<td class="annual-table__amount">{{ number_format($row['months'][$month]) }}円</td>@endfor
+                        @for ($month = 1; $month <= 12; $month++)
+                            <td class="annual-table__amount {{ $row['months'][$month] === null ? 'annual-table__dash' : '' }}">
+                                {{ $row['months'][$month] === null ? '-' : number_format($row['months'][$month]) . '円' }}
+                            </td>
+                        @endfor
                         <td class="annual-table__amount annual-table__average annual-table__dash">-</td>
                         <td class="annual-table__amount annual-table__total annual-table__dash">-</td>
                     </tr>
@@ -344,7 +348,11 @@
                 @forelse ($liabilityRows as $row)
                     <tr>
                         <td class="annual-table__label">{{ $row['label'] }}</td>
-                        @for ($month = 1; $month <= 12; $month++)<td class="annual-table__amount">{{ number_format($row['months'][$month]) }}円</td>@endfor
+                        @for ($month = 1; $month <= 12; $month++)
+                            <td class="annual-table__amount {{ $row['months'][$month] === null ? 'annual-table__dash' : '' }}">
+                                {{ $row['months'][$month] === null ? '-' : number_format($row['months'][$month]) . '円' }}
+                            </td>
+                        @endfor
                         <td class="annual-table__amount annual-table__average annual-table__dash">-</td>
                         <td class="annual-table__amount annual-table__total annual-table__dash">-</td>
                     </tr>

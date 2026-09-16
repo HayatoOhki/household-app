@@ -159,6 +159,12 @@ class SummaryService
             $months = [];
             for ($month = 1; $month <= 12; $month++) {
                 $monthEnd = CarbonImmutable::create($year, $month, 1)->endOfMonth();
+
+                if ($monthEnd->startOfMonth()->isAfter(CarbonImmutable::today()->startOfMonth())) {
+                    $months[$month] = null;
+                    continue;
+                }
+
                 $balance = 0;
                 foreach ($balanceTransactions->where('account_id', $account->id) as $transaction) {
                     if ($transaction->transaction_date->gt($monthEnd)) {
@@ -193,6 +199,12 @@ class SummaryService
             $months = [];
             for ($month = 1; $month <= 12; $month++) {
                 $monthEnd = CarbonImmutable::create($year, $month, 1)->endOfMonth();
+
+                if ($monthEnd->startOfMonth()->isAfter(CarbonImmutable::today()->startOfMonth())) {
+                    $months[$month] = null;
+                    continue;
+                }
+
                 $balance = 0;
                 foreach ($balanceTransactions->where('account_id', $account->id) as $transaction) {
                     if ($transaction->transaction_date->gt($monthEnd)) {
@@ -642,6 +654,7 @@ class SummaryService
                 fn (array $accountBalance) =>
                     $accountBalance['account_type']
                     === AccountType::LIABILITY
+                    && $accountBalance['balance'] > 0
             )
             ->values();
     }

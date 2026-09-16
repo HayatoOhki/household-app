@@ -135,15 +135,21 @@
         */
 
         .transactions-table-wrapper {
+            width: 100%;
+            max-width: 100%;
             overflow-x: auto;
+            overflow-y: hidden;
         }
 
         .transactions-table {
-            min-width: 1050px;
+            width: max-content;
+            min-width: 100%;
+            table-layout: auto;
         }
 
         .transactions-table th,
         .transactions-table td {
+            padding: 10px 8px;
             white-space: nowrap;
         }
 
@@ -157,6 +163,7 @@
 
         .transactions-table td.left-cell {
             text-align: left;
+            white-space: nowrap;
         }
 
         .transactions-table td.amount-cell {
@@ -894,7 +901,10 @@
 
                                     {{-- 経費割合 --}}
                                     <td class="expense-column center-cell">
-                                        @if ($isNormalTransaction)
+                                        @if (
+                                            $isNormalTransaction
+                                            && (float) $transaction->expense_ratio > 0
+                                        )
                                             {{ number_format(
                                                 (float) $transaction->expense_ratio,
                                                 0
@@ -906,7 +916,7 @@
 
                                     {{-- 経費登録 --}}
                                     <td class="expense-column center-cell">
-                                        @if ($isNormalTransaction)
+                                        @if ($isNormalTransaction && (float) $transaction->expense_ratio > 0)
                                             <input
                                                 type="checkbox"
                                                 class="status-checkbox"
@@ -923,7 +933,7 @@
 
                                     {{-- 領収書保存 --}}
                                     <td class="expense-column center-cell">
-                                        @if ($isNormalTransaction)
+                                        @if ($isNormalTransaction && (float) $transaction->expense_ratio > 0)
                                             <input
                                                 type="checkbox"
                                                 class="status-checkbox"

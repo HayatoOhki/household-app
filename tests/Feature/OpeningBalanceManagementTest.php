@@ -84,8 +84,9 @@ class OpeningBalanceManagementTest extends TestCase
         $response->assertSeeInOrder([
             '現金',
             '三井住友銀行',
-            '楽天カード',
         ]);
+
+        $response->assertDontSee('楽天カード');
     }
 
     public function test_user_can_create_opening_balance_without_date_input(): void

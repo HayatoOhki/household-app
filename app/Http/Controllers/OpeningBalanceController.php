@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Enums\AccountType;
 use App\Enums\TransactionType;
 use App\Models\Transaction;
 use Illuminate\Http\RedirectResponse;
@@ -20,6 +21,7 @@ class OpeningBalanceController extends Controller
     {
         $accounts = $request->user()
             ->accounts()
+            ->where('type', '!=', AccountType::CREDIT_CARD->value)
             ->orderBy('sort_order')
             ->orderBy('id')
             ->get();
@@ -185,6 +187,11 @@ class OpeningBalanceController extends Controller
                     ->where(
                         'user_id',
                         $request->user()->id
+                    )
+                    ->where(
+                        'type',
+                        '!=',
+                        AccountType::CREDIT_CARD->value
                     ),
             ],
             'amount' => [
