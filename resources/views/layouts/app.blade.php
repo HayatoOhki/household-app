@@ -169,7 +169,7 @@
             width: 100%;
             max-width: 1440px;
             margin: 0 auto;
-            padding: 36px 40px 64px;
+            padding: 36px 10px 64px;
         }
 
         .page-header {
