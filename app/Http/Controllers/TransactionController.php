@@ -303,7 +303,14 @@ class TransactionController extends Controller
 
         $validated = $this->validateTransaction($request);
 
-        if ($validated['type'] === TransactionType::INCOME->value) {
+        if (in_array(
+            $validated['type'],
+            [
+                TransactionType::INCOME->value,
+                TransactionType::REFUND->value,
+            ],
+            true
+        )) {
             $validated['withdrawal_date'] = null;
         }
 
@@ -439,10 +446,14 @@ class TransactionController extends Controller
 
             $validated = $this->validateTransaction($request);
 
-            if (
-                $validated['type']
-                === TransactionType::INCOME->value
-            ) {
+            if (in_array(
+                $validated['type'],
+                [
+                    TransactionType::INCOME->value,
+                    TransactionType::REFUND->value,
+                ],
+                true
+            )) {
                 $validated['withdrawal_date'] = null;
             }
 
@@ -504,10 +515,14 @@ class TransactionController extends Controller
 
         $validated = $this->validateTransaction($request);
 
-        if (
-            $validated['type']
-            === TransactionType::INCOME->value
-        ) {
+        if (in_array(
+            $validated['type'],
+            [
+                TransactionType::INCOME->value,
+                TransactionType::REFUND->value,
+            ],
+            true
+        )) {
             $validated['withdrawal_date'] = null;
         }
 
@@ -637,6 +652,7 @@ class TransactionController extends Controller
                 Rule::in([
                     TransactionType::EXPENSE->value,
                     TransactionType::INCOME->value,
+                    TransactionType::REFUND->value,
                 ]),
             ],
             'account_id' => [
@@ -657,7 +673,9 @@ class TransactionController extends Controller
                     )
                     ->where(
                         'type',
-                        $request->input('type')
+                        $request->input('type') === TransactionType::REFUND->value
+                            ? 'expense'
+                            : $request->input('type')
                     ),
             ],
             'counterparty_name' => [
@@ -749,6 +767,7 @@ class TransactionController extends Controller
                 [
                     TransactionType::EXPENSE,
                     TransactionType::INCOME,
+                    TransactionType::REFUND,
                 ],
                 true
             ),

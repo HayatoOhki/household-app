@@ -646,6 +646,84 @@ class TransactionManagementTest extends TestCase
         $response->assertSessionHasErrors('withdrawal_date');
     }
 
+    public function test_user_can_create_refund_with_expense_category(): void
+    {
+        [$user, $account, $category] = $this->createUserData();
+
+        $response = $this
+            ->actingAs($user)
+            ->post(route('transactions.store'), [
+                'transaction_date' => '2026-09-11',
+                'type' => TransactionType::REFUND->value,
+                'account_id' => $account->id,
+                'category_id' => $category->id,
+                'counterparty_name' => '立替回収',
+                'amount' => 59000,
+                'expense_ratio' => 0,
+            ]);
+
+        $response->assertRedirect(route('transactions.index'));
+
+        $this->assertDatabaseHas('transactions', [
+            'user_id' => $user->id,
+            'type' => TransactionType::REFUND->value,
+            'account_id' => $account->id,
+            'category_id' => $category->id,
+            'counterparty_name' => '立替回収',
+            'amount' => 59000,
+            'withdrawal_date' => null,
+        ]);
+    }
+
+    public function test_refund_requires_expense_category(): void
+    {
+        [$user, $account] = $this->createUserData();
+
+        $incomeCategory = Category::create([
+            'user_id' => $user->id,
+            'type' => CategoryType::INCOME,
+            'name' => '臨時収入',
+        ]);
+
+        $response = $this
+            ->actingAs($user)
+            ->post(route('transactions.store'), [
+                'transaction_date' => '2026-09-11',
+                'type' => TransactionType::REFUND->value,
+                'account_id' => $account->id,
+                'category_id' => $incomeCategory->id,
+                'amount' => 59000,
+                'expense_ratio' => 0,
+            ]);
+
+        $response->assertSessionHasErrors('category_id');
+    }
+
+    public function test_credit_card_refund_does_not_require_withdrawal_date(): void
+    {
+        [$user, , $category] = $this->createUserData();
+
+        $creditCard = Account::create([
+            'user_id' => $user->id,
+            'name' => '楽天カード',
+            'type' => AccountType::CREDIT_CARD,
+        ]);
+
+        $response = $this
+            ->actingAs($user)
+            ->post(route('transactions.store'), [
+                'transaction_date' => '2026-09-11',
+                'type' => TransactionType::REFUND->value,
+                'account_id' => $creditCard->id,
+                'category_id' => $category->id,
+                'amount' => 3500,
+                'expense_ratio' => 0,
+            ]);
+
+        $response->assertSessionDoesntHaveErrors('withdrawal_date');
+        $response->assertRedirect(route('transactions.index'));
+    }
+
     public function test_user_can_open_duplicate_as_transaction_create_page(): void
     {
         [$user, $account, $category] = $this->createUserData();

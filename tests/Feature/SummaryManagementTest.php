@@ -588,6 +588,37 @@ class SummaryManagementTest extends TestCase
         $response->assertSee('2027年を表示');
     }
 
+    public function test_refund_reduces_expense_and_category_total_without_increasing_income(): void
+    {
+        [$user, $account, $category] = $this->createBaseData();
+
+        $this->createTransaction(
+            $user->id,
+            $account->id,
+            $category->id,
+            '2026-03-10',
+            'expense',
+            100000
+        );
+
+        $this->createTransaction(
+            $user->id,
+            $account->id,
+            $category->id,
+            '2026-03-22',
+            'refund',
+            59000
+        );
+
+        $response = $this
+            ->actingAs($user)
+            ->get(route('summary.index', ['year' => 2026]));
+
+        $response->assertOk();
+        $response->assertSee('41,000円');
+        $response->assertDontSee('59,000円');
+    }
+
     public function test_invalid_year_is_rejected(): void
     {
         $user = User::factory()->create();

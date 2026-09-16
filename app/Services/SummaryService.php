@@ -58,14 +58,22 @@ class SummaryService
                     === TransactionType::EXPENSE
             );
 
+        $refundTransactions =
+            $transactions->filter(
+                fn ($transaction) =>
+                    $transaction->type
+                    === TransactionType::REFUND
+            );
+
         $incomeMonths =
             $this->sumTransactionsByMonth(
                 $incomeTransactions
             );
 
         $expenseMonths =
-            $this->sumTransactionsByMonth(
-                $expenseTransactions
+            $this->subtractMonthlyAmounts(
+                $this->sumTransactionsByMonth($expenseTransactions),
+                $this->sumTransactionsByMonth($refundTransactions)
             );
 
         $balanceMonths = [];
@@ -112,9 +120,10 @@ class SummaryService
             $incomeTransactions,
             $averageMonthCount
         );
-        $expenseCategoryRows = $this->makeCategoryRows(
+        $expenseCategoryRows = $this->makeNetExpenseCategoryRows(
             $expenseCategories,
             $expenseTransactions,
+            $refundTransactions,
             $averageMonthCount
         );
 
@@ -122,10 +131,13 @@ class SummaryService
             ->where('type', AccountType::CREDIT_CARD->value)
             ->orderBy('sort_order')->orderBy('id')->get();
 
-        $creditCardRows = $creditCards->map(function ($account) use ($expenseTransactions, $averageMonthCount) {
+        $creditCardRows = $creditCards->map(function ($account) use ($expenseTransactions, $refundTransactions, $averageMonthCount) {
             return $this->makeAnnualRow(
                 $account->name,
-                $this->sumTransactionsByMonth($expenseTransactions->where('account_id', $account->id)),
+                $this->subtractMonthlyAmounts(
+                    $this->sumTransactionsByMonth($expenseTransactions->where('account_id', $account->id)),
+                    $this->sumTransactionsByMonth($refundTransactions->where('account_id', $account->id))
+                ),
                 $averageMonthCount
             );
         })->values();
@@ -157,6 +169,8 @@ class SummaryService
                         $balance += (int) $transaction->amount;
                     } elseif ($transaction->type === TransactionType::EXPENSE) {
                         $balance -= (int) $transaction->amount;
+                    } elseif ($transaction->type === TransactionType::REFUND) {
+                        $balance += (int) $transaction->amount;
                     } elseif ($transaction->type === TransactionType::TRANSFER) {
                         if ($transaction->outgoingTransfer !== null) {
                             $balance -= (int) $transaction->amount;
@@ -239,6 +253,51 @@ class SummaryService
         }
 
         return $rows;
+    }
+
+    private function makeNetExpenseCategoryRows(
+        Collection $categories,
+        Collection $expenses,
+        Collection $refunds,
+        int $averageMonthCount
+    ): Collection {
+        $rows = $categories->map(function ($category) use ($expenses, $refunds, $averageMonthCount) {
+            return $this->makeAnnualRow(
+                $category->name,
+                $this->subtractMonthlyAmounts(
+                    $this->sumTransactionsByMonth($expenses->where('category_id', $category->id)),
+                    $this->sumTransactionsByMonth($refunds->where('category_id', $category->id))
+                ),
+                $averageMonthCount
+            );
+        })->values();
+
+        $uncategorizedExpenses = $expenses->whereNull('category_id');
+        $uncategorizedRefunds = $refunds->whereNull('category_id');
+
+        if ($uncategorizedExpenses->isNotEmpty() || $uncategorizedRefunds->isNotEmpty()) {
+            $rows->push($this->makeAnnualRow(
+                '未分類',
+                $this->subtractMonthlyAmounts(
+                    $this->sumTransactionsByMonth($uncategorizedExpenses),
+                    $this->sumTransactionsByMonth($uncategorizedRefunds)
+                ),
+                $averageMonthCount
+            ));
+        }
+
+        return $rows;
+    }
+
+    private function subtractMonthlyAmounts(array $expenses, array $refunds): array
+    {
+        $months = [];
+
+        for ($month = 1; $month <= 12; $month++) {
+            $months[$month] = $expenses[$month] - $refunds[$month];
+        }
+
+        return $months;
     }
 
     private function sumTransactionsByMonth(
@@ -351,6 +410,17 @@ class SummaryService
                 )
                 ->sum('amount');
 
+        $monthlyRefund =
+            $monthlyTransactions
+                ->filter(
+                    fn ($transaction) =>
+                        $transaction->type
+                        === TransactionType::REFUND
+                )
+                ->sum('amount');
+
+        $monthlyExpense -= $monthlyRefund;
+
         $monthlyBalance =
             $monthlyIncome
             - $monthlyExpense;
@@ -359,24 +429,30 @@ class SummaryService
             $monthlyTransactions
                 ->filter(
                     fn ($transaction) =>
-                        $transaction->type
-                        === TransactionType::EXPENSE
+                        in_array(
+                            $transaction->type,
+                            [
+                                TransactionType::EXPENSE,
+                                TransactionType::REFUND,
+                            ],
+                            true
+                        )
                 )
                 ->groupBy('category_id')
                 ->map(function ($transactions) {
-                    $first =
-                        $transactions->first();
+                    $first = $transactions->first();
+
+                    $amount = $transactions->sum(
+                        fn ($transaction) =>
+                            $transaction->type === TransactionType::REFUND
+                                ? -(int) $transaction->amount
+                                : (int) $transaction->amount
+                    );
 
                     return [
                         'category_name' =>
-                            $first
-                                ->category
-                                ?->name
-                            ?? '未分類',
-
-                        'amount' =>
-                            $transactions
-                                ->sum('amount'),
+                            $first->category?->name ?? '未分類',
+                        'amount' => $amount,
                     ];
                 })
                 ->sortByDesc('amount')
@@ -491,6 +567,17 @@ class SummaryService
                         if (
                             $transaction->type
                             ===
+                            TransactionType::REFUND
+                        ) {
+                            $balance +=
+                                $transaction->amount;
+
+                            continue;
+                        }
+
+                        if (
+                            $transaction->type
+                            ===
                             TransactionType::TRANSFER
                         ) {
                             if (
@@ -583,6 +670,7 @@ class SummaryService
                 ) {
                     $transactions = $user
                         ->transactions()
+                        ->where('type', TransactionType::EXPENSE->value)
                         ->where(
                             'account_id',
                             $account->id

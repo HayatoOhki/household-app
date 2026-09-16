@@ -381,6 +381,53 @@ class DashboardManagementTest extends TestCase
         );
     }
 
+    public function test_dashboard_refund_increases_balance_and_reduces_monthly_expense(): void
+    {
+        $user = User::factory()->create();
+
+        $account = Account::create([
+            'user_id' => $user->id,
+            'name' => '現金',
+            'type' => AccountType::CASH,
+        ]);
+
+        $category = Category::create([
+            'user_id' => $user->id,
+            'type' => CategoryType::EXPENSE,
+            'name' => '旅行費',
+        ]);
+
+        foreach ([
+            [TransactionType::OPENING_BALANCE, 200000],
+            [TransactionType::EXPENSE, 100000],
+            [TransactionType::REFUND, 59000],
+        ] as [$type, $amount]) {
+            Transaction::create([
+                'user_id' => $user->id,
+                'transaction_date' => now()->toDateString(),
+                'type' => $type,
+                'account_id' => $account->id,
+                'category_id' => $type === TransactionType::OPENING_BALANCE
+                    ? null
+                    : $category->id,
+                'counterparty_name' => null,
+                'amount' => $amount,
+                'withdrawal_date' => null,
+                'expense_ratio' => 0,
+                'expense_registered' => false,
+                'receipt_saved' => false,
+            ]);
+        }
+
+        $response = $this
+            ->actingAs($user)
+            ->get(route('dashboard'));
+
+        $response->assertSuccessful();
+        $response->assertSee('41,000');
+        $response->assertSee('159,000');
+    }
+
     public function test_dashboard_displays_credit_card_without_withdrawal_transactions(): void
     {
         $user = User::factory()->create();

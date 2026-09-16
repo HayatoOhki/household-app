@@ -13,6 +13,7 @@ class TransactionTypeTest extends TestCase
     {
         $this->assertSame('expense', TransactionType::EXPENSE->value);
         $this->assertSame('income', TransactionType::INCOME->value);
+        $this->assertSame('refund', TransactionType::REFUND->value);
         $this->assertSame('transfer', TransactionType::TRANSFER->value);
         $this->assertSame('opening_balance', TransactionType::OPENING_BALANCE->value);
     }
@@ -27,6 +28,11 @@ class TransactionTypeTest extends TestCase
         $this->assertSame(
             TransactionType::INCOME,
             TransactionType::from('income')
+        );
+
+        $this->assertSame(
+            TransactionType::REFUND,
+            TransactionType::from('refund')
         );
 
         $this->assertSame(

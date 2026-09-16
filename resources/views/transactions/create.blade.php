@@ -60,7 +60,7 @@
 
         .type-selector {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
+            grid-template-columns: repeat(4, 1fr);
             overflow: hidden;
             height: 40px;
             border: 1px solid var(--border);
@@ -99,6 +99,11 @@
         .type-option input[value="income"]:checked + label {
             background: #f0fdf4;
             color: #15803d;
+        }
+
+        .type-option input[value="refund"]:checked + label {
+            background: #fff7ed;
+            color: #c2410c;
         }
 
         .type-option input[value="transfer"]:checked + label {
@@ -318,6 +323,7 @@
                                     @foreach ([
                                         'expense' => '支出',
                                         'income' => '収入',
+                                        'refund' => '返金',
                                         'transfer' => '振替',
                                     ] as $value => $label)
                                         <div class="type-option">
@@ -747,6 +753,8 @@
 
             function filterCategoryOptions() {
                 const type = selectedType();
+                const categoryType =
+                    type === 'refund' ? 'expense' : type;
 
                 Array.from(categorySelect.options).forEach(function (option) {
                     if (!option.value) {
@@ -755,7 +763,7 @@
                     }
 
                     option.hidden =
-                        option.dataset.categoryType !== type;
+                        option.dataset.categoryType !== categoryType;
                 });
 
                 const selectedOption =
@@ -910,6 +918,7 @@
                 const type = selectedType();
                 const isTransfer = type === 'transfer';
                 const isExpense = type === 'expense';
+                const isRefund = type === 'refund';
                 const accountType = selectedAccountType();
                 const isCash = accountType === 'cash';
                 const isCreditCard = accountType === 'credit_card';
@@ -941,7 +950,7 @@
                     accountLabel.childNodes[0].nodeValue =
                         isExpense
                             ? '支払方法 '
-                            : '入金先 ';
+                            : (isRefund ? '返金先 ' : '入金先 ');
 
                     counterpartyLabel.textContent =
                         isCash

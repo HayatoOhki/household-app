@@ -208,6 +208,11 @@
             color: #15803d;
         }
 
+        .type-refund {
+            background: #fff7ed;
+            color: #c2410c;
+        }
+
         .type-transfer {
             background: #eff6ff;
             color: #1d4ed8;
@@ -416,6 +421,13 @@
                                     @selected(request('type') === 'income')
                                 >
                                     収入
+                                </option>
+
+                                <option
+                                    value="refund"
+                                    @selected(request('type') === 'refund')
+                                >
+                                    返金
                                 </option>
 
                                 <option
@@ -744,7 +756,8 @@
                                 @php
                                     $isNormalTransaction =
                                         $transaction->type->value === 'expense'
-                                        || $transaction->type->value === 'income';
+                                        || $transaction->type->value === 'income'
+                                        || $transaction->type->value === 'refund';
 
                                     $displayName =
                                         $transaction->counterparty_name;
@@ -799,6 +812,10 @@
                                         @elseif ($transaction->type->value === 'income')
                                             <span class="type-badge type-income">
                                                 収入
+                                            </span>
+                                        @elseif ($transaction->type->value === 'refund')
+                                            <span class="type-badge type-refund">
+                                                返金
                                             </span>
                                         @elseif ($transaction->type->value === 'transfer')
                                             <span class="type-badge type-transfer">
